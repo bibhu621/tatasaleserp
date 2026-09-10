@@ -1,0 +1,22 @@
+[
+  {
+    "id": "usr_admin",
+    "username": "admin",
+    "password": "$2b$10$SJ0j3.Sol.FFlXYNxgkMXOkLy8Qs5y9Gka6ye3SD1oEpKTYhqCgNK",
+    "name": "System Administrator",
+    "role": "admin",
+    "branch": "Sasaram (Rohtas)",
+    "isActive": true,
+    "createdAt": "2026-09-10T12:11:35.576Z"
+  },
+  {
+    "id": "usr_mtvho395",
+    "username": "sales_ravi",
+    "password": "$2b$10$QJNIrmfPBAWJAXAPXzo2x.NkpjsgzsMal8c/TESYviI0V9fDfV3eO",
+    "name": "Ravi Kumar",
+    "role": "sales",
+    "branch": "Bihiya (Bhojpur)",
+    "isActive": true,
+    "createdAt": "2026-09-10T12:13:46.745Z"
+  }
+]
