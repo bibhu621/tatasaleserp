@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { fetchDeals } from "@/lib/db";
+import { isDealForUser, filterDealsForUser } from "@/lib/dealUtils";
 import * as XLSX from "xlsx";
 
 const num = (v) => (isNaN(parseFloat(v)) ? 0 : parseFloat(v));
@@ -64,10 +65,19 @@ export async function GET(request) {
   }
 
   try {
-    const deals = await fetchDeals();
+    let deals = await fetchDeals();
+    const isSales = auth.session.role === "sales";
+
+    // If salesman, restrict deals strictly to his own deals
+    if (isSales) {
+      deals = filterDealsForUser(deals, auth.session);
+    }
+
     const { searchParams } = new URL(request.url);
     const branchFilter = searchParams.get("branch") || "all";
-    const salesmanFilter = searchParams.get("salesman") || "all";
+    const salesmanFilter = isSales
+      ? auth.session.name || "My Deals"
+      : searchParams.get("salesman") || "all";
     const fromDate = searchParams.get("from");
     const toDate = searchParams.get("to");
 
@@ -84,7 +94,7 @@ export async function GET(request) {
         (x) => x.branch.toLowerCase() === branchFilter.toLowerCase()
       );
     }
-    if (salesmanFilter !== "all") {
+    if (!isSales && salesmanFilter !== "all") {
       filtered = filtered.filter(
         (x) => x.salesman.toLowerCase() === salesmanFilter.toLowerCase()
       );
@@ -101,6 +111,7 @@ export async function GET(request) {
     const wb = XLSX.utils.book_new();
 
     // 1. Ledger Sheet
+    const ledgerSheetName = isSales ? "My Sales Ledger" : "Sales Ledger";
     const ledgerRows = filtered.map(({ d, c, dt, salesman, branch }) => {
       const validPayments = (d.paymentLog || []).filter(
         (p) => paymentStatus(p) !== "rejected"
@@ -131,29 +142,31 @@ export async function GET(request) {
     });
 
     const wsLedger = XLSX.utils.json_to_sheet(ledgerRows);
-    XLSX.utils.book_append_sheet(wb, wsLedger, "Sales Ledger");
+    XLSX.utils.book_append_sheet(wb, wsLedger, ledgerSheetName);
 
-    // 2. Salesman Sheet
-    const smMap = {};
-    filtered.forEach(({ c, salesman, branch }) => {
-      if (!smMap[salesman]) {
-        smMap[salesman] = {
-          "Salesman Name": salesman,
-          "Branch": branch,
-          "Total Deals": 0,
-          "Net Sales Value (INR)": 0,
-          "Collected (INR)": 0,
-          "Outstanding Dues (INR)": 0,
-        };
-      }
-      smMap[salesman]["Total Deals"]++;
-      smMap[salesman]["Net Sales Value (INR)"] += c.netOnRoad;
-      smMap[salesman]["Collected (INR)"] += c.totalCollected;
-      smMap[salesman]["Outstanding Dues (INR)"] += c.outstandingDue;
-    });
+    // 2. Salesman Sheet (Admin only)
+    if (!isSales) {
+      const smMap = {};
+      filtered.forEach(({ c, salesman, branch }) => {
+        if (!smMap[salesman]) {
+          smMap[salesman] = {
+            "Salesman Name": salesman,
+            "Branch": branch,
+            "Total Deals": 0,
+            "Net Sales Value (INR)": 0,
+            "Collected (INR)": 0,
+            "Outstanding Dues (INR)": 0,
+          };
+        }
+        smMap[salesman]["Total Deals"]++;
+        smMap[salesman]["Net Sales Value (INR)"] += c.netOnRoad;
+        smMap[salesman]["Collected (INR)"] += c.totalCollected;
+        smMap[salesman]["Outstanding Dues (INR)"] += c.outstandingDue;
+      });
 
-    const wsSalesman = XLSX.utils.json_to_sheet(Object.values(smMap));
-    XLSX.utils.book_append_sheet(wb, wsSalesman, "Salesman Summary");
+      const wsSalesman = XLSX.utils.json_to_sheet(Object.values(smMap));
+      XLSX.utils.book_append_sheet(wb, wsSalesman, "Salesman Summary");
+    }
 
     // 3. Summary Sheet
     const totalNet = filtered.reduce((s, x) => s + x.c.netOnRoad, 0);
@@ -163,20 +176,23 @@ export async function GET(request) {
     const summaryRows = [
       { Metric: "Dealership Company", Value: "TATA PUNYA" },
       { Metric: "Software System", Value: "Tata Punya ERP" },
-      { Metric: "Total Deals", Value: filtered.length },
-      { Metric: "Total Net Order Value (INR)", Value: totalNet },
-      { Metric: "Total Collected (INR)", Value: totalCollected },
-      { Metric: "Total Outstanding Dues (INR)", Value: totalDue },
+      { Metric: "Report Scope", Value: isSales ? `Sales Executive: ${auth.session.name}` : "Dealership Wide" },
+      { Metric: isSales ? "My Total Deals" : "Total Deals", Value: filtered.length },
+      { Metric: isSales ? "My Net Sales Value (INR)" : "Total Net Order Value (INR)", Value: totalNet },
+      { Metric: isSales ? "My Collected Inflow (INR)" : "Total Collected (INR)", Value: totalCollected },
+      { Metric: isSales ? "My Pending Customer Dues (INR)" : "Total Outstanding Dues (INR)", Value: totalDue },
       {
         Metric: "Collection Rate (%)",
         Value: totalNet > 0 ? Math.round((totalCollected / totalNet) * 100) + "%" : "0%",
       },
     ];
     const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
-    XLSX.utils.book_append_sheet(wb, wsSummary, "Executive Summary");
+    XLSX.utils.book_append_sheet(wb, wsSummary, isSales ? "My Performance Summary" : "Executive Summary");
 
     const buf = XLSX.write(wb, { bookType: "xlsx", type: "buffer" });
-    const filename = `Tata_Punya_Sales_Report_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    const filename = isSales
+      ? `Tata_Punya_My_Sales_Report_${new Date().toISOString().slice(0, 10)}.xlsx`
+      : `Tata_Punya_Sales_Report_${new Date().toISOString().slice(0, 10)}.xlsx`;
 
     return new NextResponse(buf, {
       status: 200,

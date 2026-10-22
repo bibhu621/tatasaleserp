@@ -18,6 +18,8 @@ const DealSchema = new mongoose.Schema(
       default: "draft",
     },
     createdBy: String,
+    createdById: String,
+    createdByUsername: String,
     data: {
       type: Object,
       required: true,

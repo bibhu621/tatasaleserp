@@ -5,6 +5,7 @@ import { Truck, ClipboardCheck, Wallet, BarChart3, Plus, ChevronRight, ChevronDo
 import LoginPage from "@/components/LoginPage";
 import UserManagement from "@/components/UserManagement";
 import ReportsDashboard from "@/components/ReportsDashboard";
+import { isDealForUser, filterDealsForUser } from "@/lib/dealUtils";
 
 /* ====================================================================== */
 /*  Theme — warm paper + ink, one vermilion accent                         */
@@ -180,14 +181,20 @@ const logEntry = (by, role, note) => ({ at: stamp(), by, role, note });
 
 function newDeal(branch, actor, initialCustomer = {}) {
   const selectedBranch = normalizeBranch(branch) || "Sasaram";
+  const isSales = actor?.role === "sales";
   return {
     id: "D" + Date.now().toString(36).toUpperCase(),
     branch: selectedBranch,
     status: STATUS.DRAFT,
     createdBy: actor?.name || "Sales",
+    createdById: actor?.id || "",
+    createdByUsername: actor?.username || "",
     createdAt: stamp(),
     customer: { ...emptyCustomer(), ...initialCustomer },
-    vehicle: emptyVehicle(),
+    vehicle: {
+      ...emptyVehicle(),
+      dse: isSales ? (actor?.name || actor?.username || "") : "",
+    },
     pricing: emptyPricing(),
     officeUse: emptyOfficeUse(),
     approval: { status: STATUS.DRAFT, by: "", at: "", remarks: "" },
@@ -810,8 +817,10 @@ function DealsList({ deals, session, onOpen, onNew }) {
   const [statusFilter, setStatusFilter] = useState("all");
   const [branchFilter, setBranchFilter] = useState("all");
   const [query, setQuery] = useState("");
+  const isSales = session?.role === "sales";
+  const visibleDeals = isSales ? filterDealsForUser(deals, session) : deals;
   const q = query.trim().toLowerCase();
-  const filtered = deals.filter(d =>
+  const filtered = visibleDeals.filter(d =>
     (statusFilter === "all" || d.status === statusFilter) &&
     (branchFilter === "all" || matchBranch(d.branch, branchFilter)) &&
     (!q || [d.id, d.vehicle?.chassisNo, d.customer?.name, d.customer?.companyName, d.customer?.gstNo, d.vehicle?.model, d.branch].filter(Boolean).some(v => v.toLowerCase().includes(q))));
@@ -819,7 +828,11 @@ function DealsList({ deals, session, onOpen, onNew }) {
     <div className="stack">
       <div className="search">
         <Search size={16} />
-        <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search by customer, company, GST, chassis, model, branch, or deal ID…" />
+        <input
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder={isSales ? "Search my deals by customer, company, GST, chassis, model, branch, or deal ID…" : "Search by customer, company, GST, chassis, model, branch, or deal ID…"}
+        />
       </div>
       <div className="flex between wrapf">
         <div className="flex wrapf">
@@ -832,10 +845,15 @@ function DealsList({ deals, session, onOpen, onNew }) {
             <option value="all">All branches</option>
             {BRANCHES.map(b => <option key={b} value={b}>{b}</option>)}
           </select>
+          {isSales && (
+            <span className="tag" style={{ background: "#E8F0FE", color: "#1967D2", fontWeight: 700, padding: "5px 10px" }}>
+              My Deals ({filtered.length} of {visibleDeals.length})
+            </span>
+          )}
         </div>
         {onNew && (session.role === "sales" || session.role === "admin") && <button className="btn acc" onClick={onNew}><Plus size={15} /> New deal</button>}
       </div>
-      {filtered.length === 0 ? <div className="center">No deals match these filters yet.</div> : (
+      {filtered.length === 0 ? <div className="center">{isSales ? "You have no deals matching these filters yet." : "No deals match these filters yet."}</div> : (
         <div className="stack-s">
           {filtered.slice().reverse().map(d => {
             const c = calc(d);
@@ -1048,11 +1066,11 @@ function NewDealModal({ isOpen, onClose, onCreate, session }) {
 
 const ROLE_TABS = {
   admin: [["list", "All Deals", ClipboardCheck], ["approvals", "Approvals", ShieldCheck], ["toverify", "To Verify", CheckCircle2], ["reports", "Reports", BarChart3], ["audit", "Audit Trail", FileText], ["users", "User Management", Users]],
-  sales: [["list", "Sales Deals", ClipboardCheck], ["reports", "Reports", BarChart3]],
+  sales: [["list", "My Deals", ClipboardCheck], ["reports", "My Reports", BarChart3]],
   accounts: [["toverify", "Payments To Verify", CheckCircle2], ["list", "Deals Ledger", ClipboardCheck], ["reports", "Financial Reports", BarChart3]],
   rto: [["list", "RTO & Compliance Deals", ClipboardCheck]],
 };
-const CACHE_KEY = "sales_erp_deals_cache";
+const getCacheKey = s => (s ? `sales_erp_deals_cache_${s.id || s.username || s.role}` : "sales_erp_deals_cache");
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -1073,18 +1091,29 @@ export default function App() {
     })();
   }, []);
 
-  const cacheDeals = list => { try { localStorage.setItem(CACHE_KEY, JSON.stringify(list)); } catch { } };
+  const cacheDeals = (list, s = session) => {
+    try { localStorage.setItem(getCacheKey(s), JSON.stringify(list)); } catch { }
+  };
 
-  const fetchDealsFromServer = async () => {
+  const fetchDealsFromServer = async s => {
+    const currentSession = s || session;
     setLoading(true);
     try {
       const res = await fetch("/api/deals");
       if (res.ok) {
         const data = await res.json();
-        if (data.deals) { setDeals(data.deals); cacheDeals(data.deals); setLoading(false); return; }
+        if (data.deals) {
+          setDeals(data.deals);
+          cacheDeals(data.deals, currentSession);
+          setLoading(false);
+          return;
+        }
       }
     } catch (e) { console.warn("Failed to fetch deals from server, loading cached:", e); }
-    try { const cached = localStorage.getItem(CACHE_KEY); if (cached) setDeals(JSON.parse(cached)); } catch { }
+    try {
+      const cached = localStorage.getItem(getCacheKey(currentSession));
+      if (cached) setDeals(JSON.parse(cached));
+    } catch { }
     setLoading(false);
   };
 
@@ -1092,12 +1121,12 @@ export default function App() {
     if (!session) return;
     setOpenId(null);
     setTab(session.role === "accounts" ? "toverify" : "list");
-    fetchDealsFromServer();
+    fetchDealsFromServer(session);
   }, [session]);
 
   const persist = async next => {
     setDeals(next);
-    cacheDeals(next);
+    cacheDeals(next, session);
     try {
       await fetch("/api/deals", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ deals: next }) });
     } catch (err) { console.error("Failed to sync deals to server:", err); }
@@ -1116,7 +1145,15 @@ export default function App() {
     setNewDealModalOpen(false);
   };
   const handleUpdateDeal = (id, fn) => { if (deals.some(x => x.id === id)) persist(deals.map(x => (x.id === id ? fn(x) : x))); };
-  const handleDeleteDeal = id => { persist(deals.filter(x => x.id !== id)); setOpenId(null); };
+  const handleDeleteDeal = async id => {
+    persist(deals.filter(x => x.id !== id));
+    setOpenId(null);
+    try {
+      await fetch(`/api/deals?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    } catch (err) {
+      console.error("Failed to delete deal from server:", err);
+    }
+  };
 
   const paymentUpdate = (dealId, paymentId, patch, noteFn) =>
     handleUpdateDeal(dealId, p => {
@@ -1136,19 +1173,39 @@ export default function App() {
   }
   if (!session) return <LoginPage onLoginSuccess={setSession} />;
 
+  const isSales = session.role === "sales";
+  const userDeals = isSales ? filterDealsForUser(deals, session) : deals;
   const openDeal = deals.find(d => d.id === openId);
+  const isAuthorizedForDeal = openDeal ? (isSales ? isDealForUser(openDeal, session) : true) : false;
   const roleMeta = ROLES.find(r => r.id === session.role) || { label: session.role, color: "#D2481B" };
   const roleTabs = ROLE_TABS[session.role] || [];
   const isAdmin = session.role === "admin";
-  const canCreate = session.role === "sales" || isAdmin;
+  const canCreate = isSales || isAdmin;
   const jumpToDeal = id => { setOpenId(id); setTab("list"); };
 
   let body;
   if (loading) body = <div className="center"><div className="spin" />Loading records…</div>;
-  else if (openDeal) body = <DealEditor deal={openDeal} deals={deals} session={session} onUpdate={fn => handleUpdateDeal(openDeal.id, fn)} onBack={() => setOpenId(null)} onDelete={() => handleDeleteDeal(openDeal.id)} />;
+  else if (openDeal) {
+    if (!isAuthorizedForDeal) {
+      body = (
+        <div className="card center stack" style={{ padding: 40 }}>
+          <AlertTriangle size={36} color="#A8281F" style={{ margin: "0 auto" }} />
+          <div className="h" style={{ fontSize: 18 }}>Access Restricted</div>
+          <div className="sm mute">You only have permission to view and edit your own sales deals.</div>
+          <div style={{ marginTop: 12 }}>
+            <button className="btn pri" onClick={() => setOpenId(null)}>
+              <ArrowLeft size={14} /> Back to My Deals
+            </button>
+          </div>
+        </div>
+      );
+    } else {
+      body = <DealEditor deal={openDeal} deals={deals} session={session} onUpdate={fn => handleUpdateDeal(openDeal.id, fn)} onBack={() => setOpenId(null)} onDelete={() => handleDeleteDeal(openDeal.id)} />;
+    }
+  }
   else if (tab === "users" && isAdmin) body = <UserManagement currentAdmin={session} />;
-  else if (tab === "list") body = <DealsList deals={deals} session={session} onOpen={setOpenId} onNew={canCreate ? () => setNewDealModalOpen(true) : undefined} />;
-  else if (tab === "reports") body = <ReportsDashboard deals={deals} session={session} onOpen={setOpenId} />;
+  else if (tab === "list") body = <DealsList deals={userDeals} session={session} onOpen={setOpenId} onNew={canCreate ? () => setNewDealModalOpen(true) : undefined} />;
+  else if (tab === "reports") body = <ReportsDashboard deals={userDeals} session={session} onOpen={setOpenId} />;
   else if (tab === "approvals" && isAdmin) body = <Approvals deals={deals} onOpen={jumpToDeal} />;
   else if (tab === "toverify") body = <PaymentsToVerify deals={deals} onVerify={verifyPaymentFor} onReject={rejectPaymentFor} onOpen={jumpToDeal} />;
   else if (tab === "audit" && isAdmin) body = <AuditTrail deals={deals} onOpen={jumpToDeal} />;

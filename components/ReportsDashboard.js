@@ -28,6 +28,7 @@ import {
   Sparkles,
   FileSpreadsheet,
 } from "lucide-react";
+import { isDealForUser, filterDealsForUser } from "@/lib/dealUtils";
 
 /* ---------------------------------------------------------------------- */
 /*  Helper Constants & Utilities                                           */
@@ -177,6 +178,15 @@ function formatCustomer(customer) {
 
 export default function ReportsDashboard({ deals = [], session, onOpen }) {
   const isAdmin = session?.role === "admin";
+  const isSales = session?.role === "sales";
+
+  // When salesman, strictly scope incoming deals to his own deals
+  const scopedDeals = useMemo(() => {
+    if (isSales) {
+      return filterDealsForUser(deals, session);
+    }
+    return deals;
+  }, [deals, isSales, session]);
 
   // Filter States
   const [timePreset, setTimePreset] = useState("all"); // 'all' | 'today' | 'this_week' | 'this_month' | 'this_year' | 'custom'
@@ -191,6 +201,13 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
   // Sub-tab view state
   const [activeView, setActiveView] = useState("ledger"); // 'ledger' | 'timeline' | 'salesmen'
   const [timelineGrouping, setTimelineGrouping] = useState("day"); // 'day' | 'week' | 'month'
+
+  // If non-admin attempts to view salesmen leaderboard, revert to ledger
+  useEffect(() => {
+    if (!isAdmin && activeView === "salesmen") {
+      setActiveView("ledger");
+    }
+  }, [isAdmin, activeView]);
 
   // Registered salesmen list from API (for admin)
   const [registeredSalesmen, setRegisteredSalesmen] = useState([]);
@@ -216,16 +233,19 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
     }
   }, [isAdmin]);
 
-  // All distinct salesmen gathered from deals and users list
+  // All distinct salesmen gathered from deals and users list (Admin only)
   const allSalesmen = useMemo(() => {
-    const fromDeals = deals.map((d) => getSalesmanName(d)).filter(Boolean);
+    if (isSales) {
+      return [session?.name || "My Deals"].filter(Boolean);
+    }
+    const fromDeals = scopedDeals.map((d) => getSalesmanName(d)).filter(Boolean);
     const combined = Array.from(new Set([...fromDeals, ...registeredSalesmen])).sort();
     return combined;
-  }, [deals, registeredSalesmen]);
+  }, [scopedDeals, registeredSalesmen, isSales, session]);
 
   // Pre-calculate Deals with Calculations & Date Objects
   const dealsWithCalc = useMemo(() => {
-    return deals.map((d) => {
+    return scopedDeals.map((d) => {
       const c = calcDeal(d);
       const dt = getDealDateObj(d);
       const dayKey = getDayKey(dt);
@@ -242,7 +262,7 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
         branchNorm,
       };
     });
-  }, [deals]);
+  }, [scopedDeals]);
 
   // Overall Counters (Today, This Week, This Month, This Year)
   const quickCounters = useMemo(() => {
@@ -346,8 +366,8 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
         }
       }
 
-      // 2. Salesman Filter
-      if (salesmanFilter !== "all") {
+      // 2. Salesman Filter (Admin only)
+      if (isAdmin && salesmanFilter !== "all") {
         if (salesman.toLowerCase() !== salesmanFilter.toLowerCase()) return false;
       }
 
@@ -658,77 +678,103 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
         { wch: 24 },
         { wch: 30 },
       ];
-      XLSX.utils.book_append_sheet(wb, wsLedger, "Sales & Dues Ledger");
+      XLSX.utils.book_append_sheet(wb, wsLedger, isSales ? "My Sales & Dues Ledger" : "Sales & Dues Ledger");
 
-      // Sheet 2: Salesman Performance
-      const salesmanRows = salesmanLeaderboard.map((sm, idx) => ({
-        "Rank": idx + 1,
-        "Salesman Name": sm.name,
-        "Primary Branch": sm.branch,
-        "Total Deals": sm.count,
-        "Sales Today": sm.todayCount,
-        "Net Sales Value (INR)": sm.net,
-        "Amount Collected (INR)": sm.collected,
-        "Outstanding Dues (INR)": sm.balance,
-        "Collection Efficiency (%)": sm.net > 0 ? `${Math.round((sm.collected / sm.net) * 100)}%` : "0%",
-      }));
-      const wsSalesman = XLSX.utils.json_to_sheet(salesmanRows);
-      wsSalesman["!cols"] = [
-        { wch: 8 },
-        { wch: 22 },
-        { wch: 15 },
-        { wch: 12 },
-        { wch: 12 },
-        { wch: 20 },
-        { wch: 18 },
-        { wch: 18 },
-        { wch: 20 },
-      ];
-      XLSX.utils.book_append_sheet(wb, wsSalesman, "Salesman Performance");
+      // Sheet 2: Salesman Performance (Admin Level Report Only)
+      if (isAdmin) {
+        const salesmanRows = salesmanLeaderboard.map((sm, idx) => ({
+          "Rank": idx + 1,
+          "Salesman Name": sm.name,
+          "Primary Branch": sm.branch,
+          "Total Deals": sm.count,
+          "Sales Today": sm.todayCount,
+          "Net Sales Value (INR)": sm.net,
+          "Amount Collected (INR)": sm.collected,
+          "Outstanding Dues (INR)": sm.balance,
+          "Collection Efficiency (%)": sm.net > 0 ? `${Math.round((sm.collected / sm.net) * 100)}%` : "0%",
+        }));
+        const wsSalesman = XLSX.utils.json_to_sheet(salesmanRows);
+        wsSalesman["!cols"] = [
+          { wch: 8 },
+          { wch: 22 },
+          { wch: 15 },
+          { wch: 12 },
+          { wch: 12 },
+          { wch: 20 },
+          { wch: 18 },
+          { wch: 18 },
+          { wch: 20 },
+        ];
+        XLSX.utils.book_append_sheet(wb, wsSalesman, "Salesman Performance");
+      }
 
-      // Sheet 3: Branch Overview
-      const branchRows = branchBreakdown.map((b) => ({
-        "Dealership Branch": b.branch,
-        "Total Deals": b.count,
-        "Net Order Value (INR)": b.net,
-        "Collected (INR)": b.collected,
-        "Outstanding Dues (INR)": b.balance,
-        "Collection Rate (%)": b.net > 0 ? `${Math.round((b.collected / b.net) * 100)}%` : "0%",
-      }));
-      const wsBranch = XLSX.utils.json_to_sheet(branchRows);
-      wsBranch["!cols"] = [
-        { wch: 18 },
-        { wch: 12 },
-        { wch: 20 },
-        { wch: 18 },
-        { wch: 18 },
-        { wch: 18 },
-      ];
-      XLSX.utils.book_append_sheet(wb, wsBranch, "Branch Overview");
+      // Sheet 3: Branch Overview (Admin Level Report Only)
+      if (isAdmin) {
+        const branchRows = branchBreakdown.map((b) => ({
+          "Dealership Branch": b.branch,
+          "Total Deals": b.count,
+          "Net Order Value (INR)": b.net,
+          "Collected (INR)": b.collected,
+          "Outstanding Dues (INR)": b.balance,
+          "Collection Rate (%)": b.net > 0 ? `${Math.round((b.collected / b.net) * 100)}%` : "0%",
+        }));
+        const wsBranch = XLSX.utils.json_to_sheet(branchRows);
+        wsBranch["!cols"] = [
+          { wch: 18 },
+          { wch: 12 },
+          { wch: 20 },
+          { wch: 18 },
+          { wch: 18 },
+          { wch: 18 },
+        ];
+        XLSX.utils.book_append_sheet(wb, wsBranch, "Branch Overview");
+      }
 
-      // Sheet 4: Executive KPI Summary
-      const summaryRows = [
-        { "Key Performance Metric": "Dealership Company", "Value": "TATA PUNYA" },
-        { "Key Performance Metric": "Software System", "Value": "Tata Punya ERP" },
-        { "Key Performance Metric": "Total Filtered Deals", "Value": filteredDeals.length },
-        { "Key Performance Metric": "Total Net Order Value (INR)", "Value": inr(metrics.totalNet) },
-        { "Key Performance Metric": "Total Collected Revenue (INR)", "Value": inr(metrics.totalCollected) },
-        { "Key Performance Metric": "Total Outstanding Customer Dues (INR)", "Value": inr(metrics.totalDue) },
-        { "Key Performance Metric": "Pending Dues Deals Count", "Value": metrics.duesCount },
-        { "Key Performance Metric": "Overall Collection Rate", "Value": `${metrics.collectionRate}%` },
-        { "Key Performance Metric": "Average Deal Size (INR)", "Value": inr(metrics.avgDeal) },
-        { "Key Performance Metric": "Cash Collected (INR)", "Value": inr(metrics.modeTotals["Cash"] || 0) },
-        { "Key Performance Metric": "NEFT / RTGS Collected (INR)", "Value": inr(metrics.modeTotals["NEFT/RTGS"] || 0) },
-        { "Key Performance Metric": "Financer Disbursement (INR)", "Value": inr(metrics.modeTotals["Financer Disbursement"] || 0) },
-        { "Key Performance Metric": "Cheque Inflow (INR)", "Value": inr(metrics.modeTotals["Cheque"] || 0) },
-        { "Key Performance Metric": "Verified UTR References Count", "Value": metrics.utrCount },
-        { "Key Performance Metric": "Report Generated On", "Value": new Date().toLocaleString("en-IN") },
-      ];
-      const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
-      wsSummary["!cols"] = [{ wch: 38 }, { wch: 26 }];
-      XLSX.utils.book_append_sheet(wb, wsSummary, "Executive Summary");
+      // Sheet 4: Performance Summary (Customized per role)
+      if (isSales) {
+        const summaryRows = [
+          { "Performance Metric": "Dealership Company", "Value": "TATA PUNYA" },
+          { "Performance Metric": "Report Type", "Value": "Sales Executive Personal Performance" },
+          { "Performance Metric": "Sales Executive Name", "Value": session?.name || "Salesman" },
+          { "Performance Metric": "Assigned Branch", "Value": normalizeBranch(session?.branch) },
+          { "Performance Metric": "My Total Sales Deals", "Value": filteredDeals.length },
+          { "Performance Metric": "My Total Sales Value (INR)", "Value": inr(metrics.totalNet) },
+          { "Performance Metric": "My Collected Revenue (INR)", "Value": inr(metrics.totalCollected) },
+          { "Performance Metric": "My Outstanding Customer Dues (INR)", "Value": inr(metrics.totalDue) },
+          { "Performance Metric": "Pending Dues Deals Count", "Value": metrics.duesCount },
+          { "Performance Metric": "My Collection Efficiency (%)", "Value": `${metrics.collectionRate}%` },
+          { "Performance Metric": "Average Deal Size (INR)", "Value": inr(metrics.avgDeal) },
+          { "Performance Metric": "Report Generated On", "Value": new Date().toLocaleString("en-IN") },
+        ];
+        const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
+        wsSummary["!cols"] = [{ wch: 38 }, { wch: 28 }];
+        XLSX.utils.book_append_sheet(wb, wsSummary, "My Performance Summary");
+      } else {
+        const summaryRows = [
+          { "Key Performance Metric": "Dealership Company", "Value": "TATA PUNYA" },
+          { "Key Performance Metric": "Software System", "Value": "Tata Punya ERP" },
+          { "Key Performance Metric": "Total Filtered Deals", "Value": filteredDeals.length },
+          { "Key Performance Metric": "Total Net Order Value (INR)", "Value": inr(metrics.totalNet) },
+          { "Key Performance Metric": "Total Collected Revenue (INR)", "Value": inr(metrics.totalCollected) },
+          { "Key Performance Metric": "Total Outstanding Customer Dues (INR)", "Value": inr(metrics.totalDue) },
+          { "Key Performance Metric": "Pending Dues Deals Count", "Value": metrics.duesCount },
+          { "Key Performance Metric": "Overall Collection Rate", "Value": `${metrics.collectionRate}%` },
+          { "Key Performance Metric": "Average Deal Size (INR)", "Value": inr(metrics.avgDeal) },
+          { "Key Performance Metric": "Cash Collected (INR)", "Value": inr(metrics.modeTotals["Cash"] || 0) },
+          { "Key Performance Metric": "NEFT / RTGS Collected (INR)", "Value": inr(metrics.modeTotals["NEFT/RTGS"] || 0) },
+          { "Key Performance Metric": "Financer Disbursement (INR)", "Value": inr(metrics.modeTotals["Financer Disbursement"] || 0) },
+          { "Key Performance Metric": "Cheque Inflow (INR)", "Value": inr(metrics.modeTotals["Cheque"] || 0) },
+          { "Key Performance Metric": "Verified UTR References Count", "Value": metrics.utrCount },
+          { "Key Performance Metric": "Report Generated On", "Value": new Date().toLocaleString("en-IN") },
+        ];
+        const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
+        wsSummary["!cols"] = [{ wch: 38 }, { wch: 26 }];
+        XLSX.utils.book_append_sheet(wb, wsSummary, "Executive Summary");
+      }
 
-      const filename = `Tata_Punya_Sales_Report_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      const filename = isSales
+        ? `Tata_Punya_My_Sales_Report_${new Date().toISOString().slice(0, 10)}.xlsx`
+        : `Tata_Punya_Sales_Report_${new Date().toISOString().slice(0, 10)}.xlsx`;
 
       const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
       const blob = new Blob([wbout], {
@@ -812,7 +858,10 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
     const link = document.createElement("a");
     link.style.display = "none";
     link.href = url;
-    link.download = `Tata_Punya_Sales_Report_${new Date().toISOString().slice(0, 10)}.csv`;
+    const filename = isSales
+      ? `Tata_Punya_My_Sales_Report_${new Date().toISOString().slice(0, 10)}.csv`
+      : `Tata_Punya_Sales_Report_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     setTimeout(() => {
@@ -837,12 +886,21 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
                 className="text-2xl font-bold tracking-wide text-white uppercase"
                 style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
               >
-                {isAdmin ? "TATA PUNYA · Executive Dashboard" : "TATA PUNYA · Sales Report"}
+                {isAdmin
+                  ? "TATA PUNYA · Executive Dashboard"
+                  : isSales
+                  ? "TATA PUNYA · My Sales Report"
+                  : "TATA PUNYA · Sales Report"}
               </h1>
               {isAdmin ? (
                 <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
                   <Shield className="w-3.5 h-3.5 text-amber-400" />
                   Admin Executive Privilege
+                </span>
+              ) : isSales ? (
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 rounded-full">
+                  <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  Sales Executive: {session?.name} · {normalizeBranch(session?.branch)}
                 </span>
               ) : (
                 <span className="text-[11px] font-semibold bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded-full">
@@ -851,35 +909,32 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
               )}
             </div>
             <p className="text-xs text-slate-300 max-w-2xl">
-              Tata Punya ERP — Track ongoing day-wise, week-wise, monthly, and yearly sales performance with salesman drilldowns,
-              collected revenue, outstanding customer dues, and payment UTR verifications.
+              {isSales
+                ? "Track your closed sales deals, timeline performance, payment collection receipts, and outstanding customer balances."
+                : "Tata Punya ERP — Track ongoing day-wise, week-wise, monthly, and yearly sales performance with salesman drilldowns, collected revenue, outstanding customer dues, and payment UTR verifications."}
             </p>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            {isAdmin && (
-              <>
-                <button
-                  type="button"
-                  onClick={downloadExcel}
-                  disabled={isExporting}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md transition-all active:scale-95 disabled:opacity-50"
-                  title="Download full Microsoft Excel spreadsheet (.xlsx)"
-                >
-                  <FileSpreadsheet className="w-4 h-4 text-emerald-100" />
-                  {isExporting ? "Generating Excel…" : `Download Excel Sheet (.xlsx)`}
-                </button>
-                <button
-                  type="button"
-                  onClick={exportToCSV}
-                  className="flex items-center gap-1 px-2.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700 transition-colors"
-                  title="Download raw CSV file"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  CSV
-                </button>
-              </>
-            )}
+            <button
+              type="button"
+              onClick={downloadExcel}
+              disabled={isExporting}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md transition-all active:scale-95 disabled:opacity-50"
+              title="Download Microsoft Excel spreadsheet (.xlsx)"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-emerald-100" />
+              {isExporting ? "Generating Excel…" : isSales ? "Export My Report (.xlsx)" : "Download Excel Sheet (.xlsx)"}
+            </button>
+            <button
+              type="button"
+              onClick={exportToCSV}
+              className="flex items-center gap-1 px-2.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700 transition-colors"
+              title="Download raw CSV file"
+            >
+              <Download className="w-3.5 h-3.5" />
+              CSV
+            </button>
             {hasActiveFilters && (
               <button
                 type="button"
@@ -898,7 +953,7 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
           {[
             {
               id: "today",
-              title: "Sales Today",
+              title: isSales ? "My Sales Today" : "Sales Today",
               count: quickCounters.today.count,
               net: quickCounters.today.net,
               coll: quickCounters.today.collected,
@@ -906,7 +961,7 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
             },
             {
               id: "this_week",
-              title: "This Week",
+              title: isSales ? "My Deals This Week" : "This Week",
               count: quickCounters.week.count,
               net: quickCounters.week.net,
               coll: quickCounters.week.collected,
@@ -914,7 +969,7 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
             },
             {
               id: "this_month",
-              title: "This Month",
+              title: isSales ? "My Deals This Month" : "This Month",
               count: quickCounters.month.count,
               net: quickCounters.month.net,
               coll: quickCounters.month.collected,
@@ -922,7 +977,7 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
             },
             {
               id: "this_year",
-              title: "This Year",
+              title: isSales ? "My Deals This Year" : "This Year",
               count: quickCounters.year.count,
               net: quickCounters.year.net,
               coll: quickCounters.year.collected,
@@ -1026,20 +1081,29 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
           {/* Salesman Filter */}
           <div>
             <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1 flex items-center gap-1">
-              <Users className="w-3 h-3 text-blue-600" /> Salesman Name
+              <Users className="w-3 h-3 text-blue-600" /> Sales Executive
             </label>
-            <select
-              value={salesmanFilter}
-              onChange={(e) => setSalesmanFilter(e.target.value)}
-              className="w-full text-xs border border-slate-300 rounded-md px-2.5 py-1.5 bg-white font-medium focus:ring-2 focus:ring-blue-600/30 focus:border-blue-600 outline-none"
-            >
-              <option value="all">All Salesmen ({allSalesmen.length})</option>
-              {allSalesmen.map((sm) => (
-                <option key={sm} value={sm}>
-                  {sm}
-                </option>
-              ))}
-            </select>
+            {isAdmin ? (
+              <select
+                value={salesmanFilter}
+                onChange={(e) => setSalesmanFilter(e.target.value)}
+                className="w-full text-xs border border-slate-300 rounded-md px-2.5 py-1.5 bg-white font-medium focus:ring-2 focus:ring-blue-600/30 focus:border-blue-600 outline-none"
+              >
+                <option value="all">All Salesmen ({allSalesmen.length})</option>
+                {allSalesmen.map((sm) => (
+                  <option key={sm} value={sm}>
+                    {sm}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="w-full text-xs border border-blue-200 bg-blue-50/70 rounded-md px-2.5 py-1.5 font-bold text-blue-900 flex items-center justify-between">
+                <span className="truncate">{session?.name || "My Account"}</span>
+                <span className="text-[10px] bg-blue-200/80 text-blue-800 px-1.5 py-0.5 rounded font-semibold shrink-0">
+                  My Deals
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Branch Filter */}
@@ -1127,9 +1191,9 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
         {/* Total Deals */}
         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
           <div className="flex items-center justify-between text-xs uppercase tracking-wide text-slate-500 font-semibold">
-            <span>Total Sales</span>
+            <span>{isSales ? "My Sales" : "Total Sales"}</span>
             <span className="text-[11px] font-mono font-bold bg-blue-50 text-blue-700 px-2 py-0.5 rounded">
-              {filteredDeals.length} / {deals.length}
+              {filteredDeals.length} / {scopedDeals.length}
             </span>
           </div>
           <div
@@ -1146,7 +1210,7 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
         {/* Net Order Value */}
         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
           <div className="text-xs uppercase tracking-wide text-slate-500 font-semibold">
-            Net Order Value
+            {isSales ? "My Net Order Value" : "Net Order Value"}
           </div>
           <div
             className="text-2xl font-bold mt-1.5 text-slate-900"
@@ -1160,7 +1224,7 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
         {/* Collected Revenue */}
         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
           <div className="flex items-center justify-between text-xs uppercase tracking-wide text-slate-500 font-semibold">
-            <span>Collected</span>
+            <span>{isSales ? "My Collected" : "Collected"}</span>
             <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
               {metrics.collectionRate}%
             </span>
@@ -1182,7 +1246,7 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
         {/* Outstanding Dues */}
         <div className="bg-white border border-amber-200 rounded-xl p-4 shadow-sm bg-gradient-to-br from-white to-amber-50/40">
           <div className="flex items-center justify-between text-xs uppercase tracking-wide text-amber-800 font-semibold">
-            <span>Outstanding Dues</span>
+            <span>{isSales ? "My Outstanding Dues" : "Outstanding Dues"}</span>
             {metrics.duesCount > 0 && (
               <span className="text-[10px] font-bold bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded">
                 {metrics.duesCount} pending
@@ -1195,7 +1259,9 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
           >
             {inr(metrics.totalDue)}
           </div>
-          <div className="text-[11px] text-amber-800 mt-1">Pending dealership collection</div>
+          <div className="text-[11px] text-amber-800 mt-1">
+            {isSales ? "Pending from my customers" : "Pending dealership collection"}
+          </div>
         </div>
       </div>
 
@@ -1262,59 +1328,61 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
       </div>
 
       {/* ---------------------------------------------------------------- */}
-      {/* 5. Branch Sales Overview Card                                     */}
+      {/* 5. Branch Sales Overview Card (Admin Level Report Only)           */}
       {/* ---------------------------------------------------------------- */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-        <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-          <div
-            className="font-bold text-slate-800 text-lg tracking-wide uppercase"
-            style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
-          >
-            Branch Sales & Collection Distribution
-          </div>
-          <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">
-            Sasaram · Bihiya · Buxas · Mohaniya
-          </span>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {branchBreakdown.map((bs) => (
+      {isAdmin && (
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
             <div
-              key={bs.branch}
-              onClick={() =>
-                setBranchFilter(branchFilter === bs.branch ? "all" : bs.branch)
-              }
-              className={`border rounded-lg p-3 space-y-2 cursor-pointer transition-all ${
-                branchFilter === bs.branch
-                  ? "border-blue-600 bg-blue-50/70 shadow-sm ring-1 ring-blue-500"
-                  : "border-slate-200 bg-slate-50/70 hover:bg-slate-100/70"
-              }`}
+              className="font-bold text-slate-800 text-lg tracking-wide uppercase"
+              style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
             >
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-900 text-sm">{bs.branch}</span>
-                <span className="text-xs font-bold bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
-                  {bs.count} {bs.count === 1 ? "deal" : "deals"}
-                </span>
-              </div>
-              <div className="text-xs space-y-1 text-slate-600">
-                <div className="flex justify-between">
-                  <span>Order Value:</span>
-                  <b className="text-slate-800">{inr(bs.net)}</b>
-                </div>
-                <div className="flex justify-between">
-                  <span>Collected:</span>
-                  <b className="text-emerald-700">{inr(bs.collected)}</b>
-                </div>
-                <div className="flex justify-between">
-                  <span>Outstanding:</span>
-                  <b className={bs.balance > 0 ? "text-amber-700 font-bold" : "text-slate-500"}>
-                    {inr(bs.balance)}
-                  </b>
-                </div>
-              </div>
+              Branch Sales & Collection Distribution
             </div>
-          ))}
+            <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">
+              Sasaram · Bihiya · Buxas · Mohaniya
+            </span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {branchBreakdown.map((bs) => (
+              <div
+                key={bs.branch}
+                onClick={() =>
+                  setBranchFilter(branchFilter === bs.branch ? "all" : bs.branch)
+                }
+                className={`border rounded-lg p-3 space-y-2 cursor-pointer transition-all ${
+                  branchFilter === bs.branch
+                    ? "border-blue-600 bg-blue-50/70 shadow-sm ring-1 ring-blue-500"
+                    : "border-slate-200 bg-slate-50/70 hover:bg-slate-100/70"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-900 text-sm">{bs.branch}</span>
+                  <span className="text-xs font-bold bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
+                    {bs.count} {bs.count === 1 ? "deal" : "deals"}
+                  </span>
+                </div>
+                <div className="text-xs space-y-1 text-slate-600">
+                  <div className="flex justify-between">
+                    <span>Order Value:</span>
+                    <b className="text-slate-800">{inr(bs.net)}</b>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Collected:</span>
+                    <b className="text-emerald-700">{inr(bs.collected)}</b>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Outstanding:</span>
+                    <b className={bs.balance > 0 ? "text-amber-700 font-bold" : "text-slate-500"}>
+                      {inr(bs.balance)}
+                    </b>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ---------------------------------------------------------------- */}
       {/* 6. Dashboard Sub-Views Navigation                                */}
@@ -1326,22 +1394,26 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
             {[
               {
                 id: "ledger",
-                label: "Sales & Payment Ledger",
+                label: isSales ? "My Sales & Payment Ledger" : "Sales & Payment Ledger",
                 icon: Layers,
                 count: filteredDeals.length,
               },
               {
                 id: "timeline",
-                label: "Ongoing Timeline Details",
+                label: isSales ? "My Ongoing Timeline" : "Ongoing Timeline Details",
                 icon: TrendingUp,
                 count: timelineData.length,
               },
-              {
-                id: "salesmen",
-                label: "Salesman Performance",
-                icon: UserCheck,
-                count: salesmanLeaderboard.length,
-              },
+              ...(isAdmin
+                ? [
+                    {
+                      id: "salesmen",
+                      label: "Salesman Performance",
+                      icon: UserCheck,
+                      count: salesmanLeaderboard.length,
+                    },
+                  ]
+                : []),
             ].map((v) => (
               <button
                 key={v.id}
@@ -1408,8 +1480,8 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
               {filteredDeals.length === 0 ? (
                 <div className="text-center py-12 text-slate-400 text-sm space-y-1">
                   <AlertTriangle className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                  <p className="font-semibold text-slate-600">No sales deals found</p>
-                  <p className="text-xs">Try adjusting your filters or search keywords above.</p>
+                  <p className="font-semibold text-slate-600">{isSales ? "No deals found in your account" : "No sales deals found"}</p>
+                  <p className="text-xs">Try adjusting your timeframe or payment filters above.</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto border border-slate-200 rounded-lg">
@@ -1418,7 +1490,7 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
                       <tr>
                         <th className="py-2.5 px-3">Date & Deal ID</th>
                         <th className="py-2.5 px-3">Customer & Mobile</th>
-                        <th className="py-2.5 px-3">Salesman & Branch</th>
+                        <th className="py-2.5 px-3">{isSales ? "Branch & Model" : "Salesman & Branch"}</th>
                         <th className="py-2.5 px-3 text-right">Net Order Value</th>
                         <th className="py-2.5 px-3 text-right">Collected</th>
                         <th className="py-2.5 px-3 text-right">Outstanding Due</th>
@@ -1457,7 +1529,9 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
 
                             {/* Salesman & Branch */}
                             <td className="py-2.5 px-3">
-                              <div className="font-medium text-slate-800">{salesman}</div>
+                              <div className="font-medium text-slate-800">
+                                {isSales ? d.vehicle?.model || "Commercial Vehicle" : salesman}
+                              </div>
                               <span className="inline-block text-[10px] font-semibold bg-blue-50 text-blue-700 px-1.5 py-0.2 rounded border border-blue-100">
                                 {branchNorm}
                               </span>
@@ -1638,8 +1712,8 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
             </div>
           )}
 
-          {/* VIEW 3: Salesman Performance Leaderboard */}
-          {activeView === "salesmen" && (
+          {/* VIEW 3: Salesman Performance Leaderboard (Admin Level Report Only) */}
+          {isAdmin && activeView === "salesmen" && (
             <div className="space-y-3">
               <div className="text-xs text-slate-500">
                 Track and compare salesman deal closures, revenue contribution, and collection
