@@ -381,14 +381,23 @@ function DealEditor({ deal: d, deals, session, onUpdate, onBack, onDelete }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Draft/Rejected: edits apply immediately. Pending: fully locked. Approved/Delivered: locked until
-  // Sales enters Edit mode, then changes are staged and need Admin approval. Closed: hard lock.
+  // Sales/Admin enters Edit mode, then changes are staged (or saved by Admin). Closed: hard lock.
   const preApproval = d.status === STATUS.DRAFT || d.status === STATUS.REJECTED;
   const postApproval = d.status === STATUS.APPROVED || d.status === STATUS.DELIVERED;
-  const canTouch = isSales && !hasPendingAmendment && (preApproval || (postApproval && editMode));
-  const gated = postApproval;
-  const snapshot = () => ({ customer: d.customer, vehicle: d.vehicle, pricing: d.pricing });
+  const canTouch = (isSales || isAdmin) && !hasPendingAmendment && (preApproval || (postApproval && editMode));
+  const gated = postApproval && !isAdmin;
+  const snapshot = () => ({
+    customer: { ...emptyCustomer(), ...(d.customer || {}) },
+    vehicle: { ...emptyVehicle(), ...(d.vehicle || {}) },
+    pricing: { ...emptyPricing(), ...(d.pricing || {}) },
+  });
   const [coreDraft, setCoreDraft] = useState(snapshot);
   const coreDirty = gated && JSON.stringify(coreDraft) !== JSON.stringify(snapshot());
+
+  useEffect(() => {
+    setCoreDraft(snapshot());
+    setEditMode(false);
+  }, [d.id]);
 
   // Every change saves immediately through onUpdate; nothing lives only in this component.
   const withLog = (patchFn, note) => onUpdate(prev => ({ ...patchFn(prev), activity: [...prev.activity, logEntry(session.name, role, note)] }));
@@ -400,6 +409,15 @@ function DealEditor({ deal: d, deals, session, onUpdate, onBack, onDelete }) {
   };
   const editCoreCommit = (section, field, o, n) => { if (!gated) commitFieldChange(section, field, o, n); };
   const discardEdits = () => { setCoreDraft(snapshot()); setEditMode(false); };
+  const saveAdminEdits = () => {
+    withLog(p => ({
+      ...p,
+      customer: { ...(p.customer || {}), ...(coreDraft.customer || {}) },
+      vehicle: { ...(p.vehicle || {}), ...(coreDraft.vehicle || {}) },
+      pricing: { ...(p.pricing || {}), ...(coreDraft.pricing || {}) },
+    }), "Admin updated deal fields directly");
+    setEditMode(false);
+  };
 
   const requestAmendment = () => {
     const changes = ["customer", "vehicle", "pricing"].flatMap(section =>
@@ -557,7 +575,7 @@ function DealEditor({ deal: d, deals, session, onUpdate, onBack, onDelete }) {
 
       {d.approval.status === "rejected" && d.approval.remarks && <Banner kind="bad"><b>Admin rejected this pricing:</b> {d.approval.remarks}</Banner>}
       {d.status === STATUS.PENDING && <Banner>Submitted for approval — Customer, Vehicle, and Pricing are locked until Admin approves or rejects. No edits are possible right now, including by Admin.</Banner>}
-      {d.status === STATUS.DRAFT && isSales && <div className="flex" style={{ justifyContent: "flex-end" }}><button className="btn no xs" onClick={() => setConfirmDelete(true)}>Delete this draft</button></div>}
+      {d.status === STATUS.DRAFT && (isSales || isAdmin) && <div className="flex" style={{ justifyContent: "flex-end" }}><button className="btn no xs" onClick={() => setConfirmDelete(true)}>Delete this draft</button></div>}
 
       {pendingAmendments.length > 0 && (
         <div className="card stack-s" style={{ background: "#FBF0D6", borderColor: "#EBD39A" }}>
@@ -581,19 +599,23 @@ function DealEditor({ deal: d, deals, session, onUpdate, onBack, onDelete }) {
         </div>
       )}
 
-      {isSales && postApproval && !hasPendingAmendment && (
+      {(isSales || isAdmin) && postApproval && !hasPendingAmendment && (
         <div className="card flex between wrapf" style={{ padding: 12 }}>
           {!editMode ? (
             <>
-              <div className="sm" style={{ maxWidth: 560 }}>Customer, Vehicle, and Pricing are locked now that this deal is approved. Only edit if something was entered wrong — it'll need Admin approval.</div>
+              <div className="sm" style={{ maxWidth: 560 }}>Customer, Vehicle, and Pricing are locked now that this deal is approved. {isAdmin ? "Click Edit to make changes directly as Admin." : "Only edit if something was entered wrong — it'll need Admin approval."}</div>
               <button className="btn pri" onClick={() => setEditMode(true)}>Edit</button>
             </>
           ) : (
             <>
-              <div className="sm" style={{ maxWidth: 560 }}>Editing unlocked. {coreDirty ? "You've made changes below — discard them or submit for Admin approval." : "Make your changes below, then submit for Admin approval (or discard to leave as-is)."}</div>
+              <div className="sm" style={{ maxWidth: 560 }}>Editing unlocked. {isAdmin ? "Update details below and click Save changes (or Discard)." : coreDirty ? "You've made changes below — discard them or submit for Admin approval." : "Make your changes below, then submit for Admin approval (or discard to leave as-is)."}</div>
               <div className="flex">
                 <button className="btn" onClick={discardEdits}>Discard changes</button>
-                <button className="btn acc" onClick={requestAmendment} disabled={!coreDirty}>Submit for approval</button>
+                {isAdmin ? (
+                  <button className="btn acc" onClick={saveAdminEdits}>Save changes</button>
+                ) : (
+                  <button className="btn acc" onClick={requestAmendment} disabled={!coreDirty}>Submit for approval</button>
+                )}
               </div>
             </>
           )}
@@ -756,7 +778,14 @@ function DealEditor({ deal: d, deals, session, onUpdate, onBack, onDelete }) {
       <div className="dock">
         <span className="sm mute">Changes save automatically.</span>
         <div className="flex">
-          {isSales && preApproval && <button className="btn acc" onClick={submitForApproval}>Submit for approval</button>}
+          {(isSales || isAdmin) && preApproval && (
+            <button
+              className="btn acc"
+              onClick={isAdmin ? () => withLog(p => ({ ...p, status: STATUS.APPROVED, approval: { status: "approved", by: session.name, at: stamp(), remarks: "Directly approved by Admin" } }), "Pricing approved directly by Admin") : submitForApproval}
+            >
+              {isAdmin ? "Approve & Activate deal" : "Submit for approval"}
+            </button>
+          )}
           {isAdmin && d.status === STATUS.PENDING && <><button className="btn no" onClick={reject}>Reject</button><button className="btn go" onClick={approve}>Approve pricing</button></>}
           {isAdmin && d.status === STATUS.APPROVED && <button className="btn pri" onClick={markDelivered}>Mark delivered</button>}
           {isAdmin && postApproval && <button className="btn go" onClick={closeDeal} disabled={balanceDue} title={balanceDue ? "Balance must be cleared before closing" : ""}>Close deal</button>}
