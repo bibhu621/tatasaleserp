@@ -1,2170 +1,1029 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Truck, ClipboardCheck, Wallet, BarChart3, Plus, ChevronRight, ChevronDown, CheckCircle2, XCircle, Clock, PackageCheck, ArrowLeft, LogOut, AlertTriangle, FileText, Filter, RefreshCw, Search, ShieldCheck, HandCoins, Lock, Users } from "lucide-react";
+import { Truck, ClipboardCheck, Wallet, BarChart3, Plus, ChevronRight, ChevronDown, CheckCircle2, XCircle, Clock, PackageCheck, ArrowLeft, LogOut, AlertTriangle, FileText, Filter, RefreshCw, Search, ShieldCheck, Lock, Users } from "lucide-react";
 import LoginPage from "@/components/LoginPage";
 import UserManagement from "@/components/UserManagement";
+import ReportsDashboard from "@/components/ReportsDashboard";
 
-/* ---------------------------------------------------------------------- */
+/* ====================================================================== */
+/*  Theme — warm paper + ink, one vermilion accent                         */
+/* ====================================================================== */
+
+const CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+.erp{--bg:#EFEBE3;--paper:#FAF8F3;--ink:#191714;--mute:#7A7468;--line:#DDD6C8;--acc:#D2481B;--ok:#25683A;--bad:#A8281F;--warn:#9A5B00;min-height:100vh;background:var(--bg);color:var(--ink);font:14px/1.45 'Hanken Grotesk',sans-serif}
+.erp *{box-sizing:border-box}
+.erp button{font:inherit;cursor:pointer}
+.erp .disp{font-family:'Bricolage Grotesque',sans-serif;letter-spacing:-.01em}
+.erp .mono{font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums}
+.erp .mute{color:var(--mute)}.erp .sm{font-size:12px}.erp .ok{color:var(--ok)}.erp .bad{color:var(--bad)}.erp .warn{color:var(--warn)}
+.erp .flex{display:flex;align-items:center;gap:8px}.erp .wrapf{flex-wrap:wrap}.erp .between{justify-content:space-between}.erp .grow{flex:1}.erp .min{min-width:0}
+.erp .stack>*+*{margin-top:12px}.erp .stack-s>*+*{margin-top:6px}
+.erp .center{text-align:center;padding:56px 0;color:var(--mute)}
+.erp .spin{width:26px;height:26px;border:2px solid var(--acc);border-top-color:transparent;border-radius:50%;animation:sp .8s linear infinite;margin:0 auto 10px}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+.erp .top{background:var(--ink);color:#F3EFE6;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:20}
+.erp .mark{width:34px;height:34px;border-radius:8px;background:var(--acc);display:grid;place-items:center;color:#fff}
+.erp .brand{font-size:20px;font-weight:800;letter-spacing:.04em}
+.erp .env{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#A9A293;border:1px solid #3A362F;padding:2px 8px;border-radius:99px}
+.erp .who{text-align:right;line-height:1.25}.erp .who small{color:#A9A293;font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+.erp .dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px}
+.erp .out{background:transparent;color:#F3EFE6;border:1px solid #4A453C;border-radius:6px;padding:6px 10px;font-size:12px;font-weight:600;display:inline-flex;gap:6px;align-items:center}
+.erp .out:hover{background:#2A2722}
+.erp .tabs{display:flex;background:var(--paper);border-bottom:1px solid var(--line);overflow-x:auto;position:sticky;top:58px;z-index:10;padding:0 12px}
+.erp .tab{background:none;border:0;border-bottom:3px solid transparent;padding:13px 14px;font-weight:600;color:var(--mute);display:flex;gap:7px;align-items:center;white-space:nowrap}
+.erp .tab:hover{color:var(--ink)}.erp .tab.on{color:var(--ink);border-color:var(--acc)}
+.erp .wrap{max-width:1040px;margin:0 auto;padding:22px 18px}
+
+.erp .card{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:16px}
+.erp .h{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:17px;letter-spacing:-.01em}
+.erp .lbl{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--mute);font-weight:700}
+
+.erp .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);font-weight:600;font-size:13px;transition:.15s}
+.erp .btn:hover{border-color:var(--ink)}
+.erp .btn.pri{background:var(--ink);border-color:var(--ink);color:#fff}.erp .btn.pri:hover{background:#34302A}
+.erp .btn.acc{background:var(--acc);border-color:var(--acc);color:#fff}.erp .btn.acc:hover{background:#B33B14}
+.erp .btn.go{background:var(--ok);border-color:var(--ok);color:#fff}.erp .btn.go:hover{filter:brightness(.9)}
+.erp .btn.no{color:var(--bad);border-color:#E7BDB7;background:#fff}.erp .btn.no:hover{background:#FBEDEA;border-color:var(--bad)}
+.erp .btn.xs{padding:4px 9px;font-size:12px;border-radius:6px}
+.erp .btn:disabled{opacity:.4;cursor:not-allowed}
+.erp .lnk{background:none;border:0;padding:0;font-size:12px;font-weight:700;color:var(--ink);text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--line)}
+.erp .lnk:hover{text-decoration-color:currentColor}.erp .lnk.ok{color:var(--ok)}.erp .lnk.bad{color:var(--bad)}.erp .lnk.mu{color:var(--mute)}
+
+.erp .fld{display:flex;flex-direction:column;gap:4px}
+.erp .inp{display:flex;align-items:center;border:1px solid var(--line);border-radius:8px;background:#fff;transition:.15s}
+.erp .inp:focus-within{border-color:var(--ink);box-shadow:0 0 0 3px rgba(25,23,20,.08)}
+.erp .inp i{font-style:normal;color:var(--mute);padding-left:10px}
+.erp .inp input,.erp .inp select{width:100%;border:0;outline:0;background:transparent;padding:8px 10px;color:var(--ink);font:inherit;border-radius:8px}
+.erp .inp.ro{background:#F1EDE4;border-style:dashed}.erp .inp.ro input{color:#5E594E}
+.erp .sel{border:1px solid var(--line);border-radius:8px;background:#fff;padding:7px 10px;font:inherit;color:var(--ink);outline:0}
+.erp .sel:focus{border-color:var(--ink)}
+
+.erp .chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px 3px 8px;border-radius:99px;font-size:12px;font-weight:700;background:var(--b);color:var(--c)}
+.erp .tag{font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:4px;background:#EAE5D8;color:#4A453C}
+.erp .tag.br{background:#F6DDD1;color:#8C2F0E}
+
+.erp .sec{background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.erp .sec-h{width:100%;display:flex;justify-content:space-between;align-items:center;padding:13px 16px;background:none;border:0;text-align:left}
+.erp .sec-h:hover{background:#F3EFE5}
+.erp .sec-h .bar{width:4px;height:26px;border-radius:2px;margin-right:12px}
+.erp .sec-b{padding:4px 16px 18px;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}
+.erp .span{grid-column:1/-1}
+
+.erp .row{width:100%;text-align:left;background:var(--paper);border:1px solid var(--line);border-left:4px solid var(--c,var(--line));border-radius:10px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;transition:.15s}
+.erp .row:hover{border-color:var(--ink);border-left-color:var(--c);transform:translateX(2px)}
+.erp .row .rt{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.erp .row .rt b{font-size:15px}
+.erp .row .rs{margin-top:3px;font-size:12px;color:var(--mute);display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.erp .qrow{width:100%;text-align:left;background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.erp .qrow:hover{border-color:var(--ink)}
+.erp .search{position:relative}.erp .search svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--mute)}
+.erp .search input{width:100%;padding:10px 12px 10px 36px;border:1px solid var(--line);border-radius:10px;background:#fff;font:inherit;outline:0}
+.erp .search input:focus{border-color:var(--ink)}
+
+.erp .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.erp .stat{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.erp .stat b{display:block;font-size:22px;margin-top:2px;font-family:'Bricolage Grotesque',sans-serif;font-variant-numeric:tabular-nums}
+.erp .banner{display:flex;gap:10px;align-items:flex-start;padding:11px 14px;border-radius:10px;font-size:13px;background:#FBF0D6;color:#6E4300;border:1px solid #EBD39A}
+.erp .banner.bad{background:#FBE5E1;color:#7C1D15;border-color:#EBBDB6}
+.erp .banner.info{background:#EAE5D8;color:#3A362F;border-color:var(--line)}
+.erp .banner svg{flex:none;margin-top:2px}
+
+.erp .tbl{width:100%;border-collapse:collapse;font-size:13px}
+.erp .tbl th{text-align:left;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--mute);padding:6px 8px;border-bottom:1px solid var(--line)}
+.erp .tbl td{padding:9px 8px;border-bottom:1px solid #EAE5D8}
+.erp .tblwrap{overflow-x:auto}
+.erp .seg{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+.erp .seg button{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 13px;border-radius:10px;border:1.5px solid var(--line);background:#fff;font-weight:600;color:#4A453C;text-align:left}
+.erp .seg button:hover{border-color:var(--ink)}
+.erp .seg button.on{border-color:var(--acc);background:#FCEEE7;color:#8C2F0E;box-shadow:0 0 0 3px rgba(210,72,27,.12)}
+.erp .ring{width:16px;height:16px;border-radius:50%;border:1.5px solid #C5BEAE;flex:none}
+.erp .sub{background:#F1EDE4;border:1px solid #E6E0D2;border-radius:8px;padding:10px}
+.erp .xp{border:1px solid var(--line);border-radius:10px;padding:12px;background:#fff}
+.erp .xp.done{background:#EEF6F0;border-color:#BFDCC7}
+.erp .ent{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;background:var(--paper);border:1px solid #EAE5D8;border-radius:6px;padding:6px 10px}
+
+.erp .dock{position:fixed;left:0;right:0;bottom:0;background:var(--paper);border-top:1px solid var(--line);padding:12px 20px;display:flex;justify-content:space-between;align-items:center;gap:10px;z-index:15;box-shadow:0 -6px 20px rgba(25,23,20,.06)}
+.erp .scrim{position:fixed;inset:0;background:rgba(25,23,20,.55);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
+.erp .modal{background:var(--paper);border-radius:14px;width:100%;max-width:400px;max-height:90vh;overflow-y:auto;padding:20px;box-shadow:0 24px 60px rgba(0,0,0,.35)}
+.erp .modal.lg{max-width:540px;padding:0}
+.erp .mhead{background:var(--ink);color:#F3EFE6;padding:18px 22px;display:flex;justify-content:space-between;align-items:flex-start}
+.erp .mhead button{background:none;border:0;color:#A9A293}
+.erp .mbody{padding:22px}
+.erp .two{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+`;
+
+/* ====================================================================== */
 /*  Constants                                                              */
-/* ---------------------------------------------------------------------- */
+/* ====================================================================== */
 
-const BRANCHES = ["Sasaram (Rohtas)", "Bihiya (Bhojpur)", "Other"];
-const ROLES = [{
-  id: "sales",
-  label: "Sales",
-  desc: "Create deals, quote pricing, log receipts",
-  color: "#1B4F9C"
-}, {
-  id: "admin",
-  label: "Admin",
-  desc: "Approve pricing & overages, close deals",
-  color: "#B5461C"
-}, {
-  id: "accounts",
-  label: "Accounts",
-  desc: "Verify payments, office-use fields",
-  color: "#1E7A4C"
-}, {
-  id: "rto",
-  label: "RTO / Registration",
-  desc: "Feed insurance/HSRP/TR/registration spend",
-  color: "#7C3AED"
-}, {
-  id: "claims",
-  label: "Claims",
-  desc: "Track TML discount claims & receipts",
-  color: "#B45309"
-}];
-const STATUS = {
-  DRAFT: "draft",
-  PENDING: "pending_approval",
-  REJECTED: "rejected",
-  APPROVED: "approved",
-  DELIVERED: "delivered",
-  CLOSED: "closed"
-};
+const BRANCHES = ["Sasaram", "Bihiya", "Buxas", "Mohaniya"];
+const BRANCH_SUB = { Sasaram: "Sasaram (Rohtas HQ)", Bihiya: "Bihiya (Bhojpur)", Buxas: "Buxas (Buxar)", Mohaniya: "Mohaniya (Kaimur)" };
+
+function normalizeBranch(b) {
+  if (!b) return "Sasaram";
+  const l = String(b).toLowerCase().trim();
+  return l.includes("bihiya") ? "Bihiya" : l.includes("buxa") ? "Buxas" : l.includes("mohan") ? "Mohaniya" : l.includes("sasaram") ? "Sasaram" : b;
+}
+const matchBranch = (db, fb) => !fb || fb === "all" ? true : !db ? false : normalizeBranch(db).toLowerCase() === fb.toLowerCase();
+function formatParty(c) {
+  if (!c) return "Untitled customer";
+  const comp = (c.companyName || "").trim(), name = (c.name || "").trim();
+  return comp && name ? `${comp} (${name})` : comp || name || "Untitled customer";
+}
+
+const ROLES = [
+  { id: "sales", label: "Sales", desc: "Create deals, quote pricing, log receipts", color: "#3B82C4" },
+  { id: "admin", label: "Admin", desc: "Approve pricing & overages, close deals", color: "#D2481B" },
+  { id: "accounts", label: "Accounts", desc: "Verify payments, office-use fields", color: "#3E9B63" },
+  { id: "rto", label: "RTO / Registration", desc: "Feed insurance/HSRP/TR/registration spend", color: "#8E5FC7" },
+];
+const STATUS = { DRAFT: "draft", PENDING: "pending_approval", REJECTED: "rejected", APPROVED: "approved", DELIVERED: "delivered", CLOSED: "closed" };
 const STATUS_META = {
-  [STATUS.DRAFT]: {
-    label: "Draft",
-    color: "#6B7280",
-    bg: "#F1F2F4",
-    icon: FileText
-  },
-  [STATUS.PENDING]: {
-    label: "Pending Approval",
-    color: "#B5461C",
-    bg: "#FBEAE0",
-    icon: Clock
-  },
-  [STATUS.REJECTED]: {
-    label: "Rejected",
-    color: "#B91C1C",
-    bg: "#FDE8E8",
-    icon: XCircle
-  },
-  [STATUS.APPROVED]: {
-    label: "Approved · Collecting Payment",
-    color: "#1B4F9C",
-    bg: "#E7EEF9",
-    icon: Wallet
-  },
-  [STATUS.DELIVERED]: {
-    label: "Delivered",
-    color: "#7C3AED",
-    bg: "#EDE6FB",
-    icon: PackageCheck
-  },
-  [STATUS.CLOSED]: {
-    label: "Closed",
-    color: "#1E7A4C",
-    bg: "#E4F3EA",
-    icon: Lock
-  }
+  draft: { label: "Draft", color: "#6F6A5E", bg: "#ECE8DE", icon: FileText },
+  pending_approval: { label: "Pending Approval", color: "#9A5B00", bg: "#F8E9C8", icon: Clock },
+  rejected: { label: "Rejected", color: "#A8281F", bg: "#F8DAD5", icon: XCircle },
+  approved: { label: "Approved · Collecting Payment", color: "#17595A", bg: "#D7EBEA", icon: Wallet },
+  delivered: { label: "Delivered", color: "#5B3A86", bg: "#E6DDF2", icon: PackageCheck },
+  closed: { label: "Closed", color: "#25683A", bg: "#D9EDDD", icon: Lock },
 };
-const EXPENSE_CATEGORIES = [{
-  id: "insurance",
-  label: "Insurance",
-  pricingField: "insurance"
-}, {
-  id: "hsrp",
-  label: "Choice No + HSRP",
-  pricingField: "choiceHsrp"
-}, {
-  id: "tr",
-  label: "Temporary Registration",
-  pricingField: "tr"
-}, {
-  id: "registration",
-  label: "Registration",
-  pricingField: "registration"
-}];
+const EXPENSE_CATEGORIES = [
+  { id: "insurance", label: "Insurance", pricingField: "insurance" },
+  { id: "hsrp", label: "Choice No + HSRP", pricingField: "choiceHsrp" },
+  { id: "tr", label: "Temporary Registration", pricingField: "tr" },
+  { id: "registration", label: "Registration", pricingField: "registration" },
+];
 const EXPENSE_STATUS_META = {
-  posted: {
-    label: "Posted",
-    color: "#1E7A4C",
-    bg: "#E4F3EA"
-  },
-  pending_approval: {
-    label: "Awaiting Admin approval",
-    color: "#B5461C",
-    bg: "#FBEAE0"
-  },
-  rejected: {
-    label: "Rejected",
-    color: "#B91C1C",
-    bg: "#FDE8E8"
-  }
+  posted: { label: "Posted", color: "#25683A", bg: "#D9EDDD" },
+  pending_approval: { label: "Awaiting Admin approval", color: "#9A5B00", bg: "#F8E9C8" },
+  rejected: { label: "Rejected", color: "#A8281F", bg: "#F8DAD5" },
 };
-const STORAGE_KEY = "termsheet-flow-demo-v1";
+const ADJ_META = { approved: ["Approved", "#25683A", "#D9EDDD"], rejected: ["Rejected", "#A8281F", "#F8DAD5"], pending: ["Awaiting Admin approval", "#9A5B00", "#F8E9C8"] };
 const PAYMENT_MODES = ["Cash", "Cheque", "NEFT/RTGS", "Financer Disbursement", "Exchange Vehicle"];
 const ADMIN_ONLY_PAYMENT_MODE = "Advance Adjustment";
-const emptyCustomer = () => ({
-  name: "",
-  soWo: "",
-  dob: "",
-  pan: "",
-  aadhar: "",
-  mobile: "",
-  address: "",
-  po: "",
-  ps: "",
-  district: "",
-  pin: "",
-  state: ""
-});
-const emptyVehicle = () => ({
-  model: "",
-  colour: "",
-  bodyType: "",
-  chassisNo: "",
-  engineNo: "",
-  fuelType: "",
-  dod: "",
-  dse: "",
-  dsm: "",
-  financerName: "",
-  rto: ""
-});
-const emptyPricing = () => ({
-  exshowroom: "",
-  tmlDiscount: "",
-  dealerDiscount: "",
-  vasNfaDiscount: "",
-  otherDiscounts: [],
-  tcs: "",
-  tr: "",
-  insurance: "",
-  registration: "",
-  permit: "",
-  fleetedgeVltd: "",
-  vasAmc: "",
-  bodyFabCharge: "",
-  choiceHsrp: "",
-  transportation: "",
-  exchangeBonus: ""
-});
-const emptyOfficeUse = () => ({
-  remarks: "",
-  bodyFabName: "",
-  interestCost: "",
-  retentionVehicle: "",
-  retentionBody: "",
-  retentionVas: "",
-  retentionOthers: ""
-});
-function newDeal(branch, actor) {
-  const id = "D" + Date.now().toString(36).toUpperCase();
+
+const CUSTOMER_FIELDS = [["companyName", "Company Name"], ["gstNo", "GST No. (Optional)"], ["name", "Customer Name"], ["soWo", "S/o, W/o, D/o"], ["dob", "DOB / Age"], ["pan", "PAN No."], ["aadhar", "Aadhar No."], ["mobile", "Mobile"], ["address", "Address"], ["po", "P.O."], ["ps", "P.S."], ["district", "District"], ["pin", "PIN"], ["state", "State"]];
+const VEHICLE_FIELDS = [["model", "Model"], ["colour", "Colour"], ["bodyType", "Body type"], ["chassisNo", "Chassis No."], ["engineNo", "Engine No."], ["fuelType", "Fuel type"], ["dod", "DOD"], ["dse", "DSE"], ["dsm", "DSM"], ["financerName", "Financer name"], ["rto", "RTO"]];
+// "=" prefix → computed read-only row, "@" → the user-defined discounts editor
+const PRICE_ROWS = [["exshowroom", "Exshowroom price"], ["tmlDiscount", "Less: TML cash discount"], ["dealerDiscount", "Less: Dealer discount"], ["vasNfaDiscount", "Less: VAS NFA discount"], ["@otherDiscounts"], ["=netPrice", "Net price of vehicle"], ["tcs", "Add: TCS 1%"], ["tr", "Add: TR"], ["insurance", "Add: Insurance"], ["registration", "Add: Registration"], ["permit", "Add: Permit"], ["fleetedgeVltd", "Add: Fleetedge/VLTD"], ["vasAmc", "Add: VAS (AMC/FMS)"], ["bodyFabCharge", "Add: Body fabrication chg"], ["choiceHsrp", "Add: Choice No + HSRP"], ["transportation", "Add: Transportation"], ["=totalOnRoad", "Total on-road price"], ["exchangeBonus", "Less: Exchange bonus"], ["=netOnRoad", "NET ON-ROAD PRICE"]];
+const OFFICE_FIELDS = [["remarks", "Remarks"], ["bodyFabName", "Body fab. name"], ["interestCost", "Interest cost"], ["retentionVehicle", "Retention on vehicle"], ["retentionBody", "Retention on body"], ["retentionVas", "Retention on VAS"], ["retentionOthers", "Retention on others"]];
+const blank = list => Object.fromEntries(list.map(([k]) => [k, ""]));
+const emptyCustomer = () => blank(CUSTOMER_FIELDS);
+const emptyVehicle = () => blank(VEHICLE_FIELDS);
+const emptyPricing = () => ({ ...blank(PRICE_ROWS.filter(r => !/^[=@]/.test(r[0]))), otherDiscounts: [] });
+const emptyOfficeUse = () => blank(OFFICE_FIELDS);
+
+const stamp = () => new Date().toISOString();
+const today = () => stamp().slice(0, 10);
+const logEntry = (by, role, note) => ({ at: stamp(), by, role, note });
+
+function newDeal(branch, actor, initialCustomer = {}) {
+  const selectedBranch = normalizeBranch(branch) || "Sasaram";
   return {
-    id,
-    branch,
+    id: "D" + Date.now().toString(36).toUpperCase(),
+    branch: selectedBranch,
     status: STATUS.DRAFT,
-    createdBy: actor.name,
-    createdAt: new Date().toISOString(),
-    customer: emptyCustomer(),
+    createdBy: actor?.name || "Sales",
+    createdAt: stamp(),
+    customer: { ...emptyCustomer(), ...initialCustomer },
     vehicle: emptyVehicle(),
     pricing: emptyPricing(),
     officeUse: emptyOfficeUse(),
-    approval: {
-      status: STATUS.DRAFT,
-      by: "",
-      at: "",
-      remarks: ""
-    },
-    paymentLog: [],
-    expenses: [],
-    claim: null,
-    amendments: [],
-    adjustments: [],
-    expenseClosed: {
-      insurance: false,
-      hsrp: false,
-      tr: false,
-      registration: false
-    },
-    activity: [{
-      at: new Date().toISOString(),
-      by: actor.name,
-      role: actor.role,
-      note: "Deal created"
-    }]
+    approval: { status: STATUS.DRAFT, by: "", at: "", remarks: "" },
+    paymentLog: [], expenses: [], amendments: [], adjustments: [],
+    expenseClosed: { insurance: false, hsrp: false, tr: false, registration: false },
+    activity: [logEntry(actor?.name || "Sales", actor?.role || "sales", `Deal created for ${selectedBranch} branch`)],
   };
 }
-const num = v => isNaN(parseFloat(v)) ? 0 : parseFloat(v);
+
+const num = v => (isNaN(parseFloat(v)) ? 0 : parseFloat(v));
+const sum = (arr, f = x => x) => arr.reduce((s, x) => s + num(f(x)), 0);
 const inr = v => "₹" + Math.round(num(v)).toLocaleString("en-IN");
 
-// Human-readable value for audit-log entries.
 function describe(v) {
-  if (Array.isArray(v)) {
-    const total = v.reduce((s, o) => s + num(o.amount), 0);
-    return v.length ? `${v.length} line(s) totaling ${inr(total)}` : "none";
-  }
+  if (Array.isArray(v)) return v.length ? `${v.length} line(s) totaling ${inr(sum(v, o => o.amount))}` : "none";
   if (v === "" || v === null || v === undefined) return "—";
   if (typeof v === "boolean") return v ? "Yes" : "No";
   return String(v);
 }
-function describeChanges(changes) {
-  return changes.map(ch => `${ch.section}.${ch.field}: ${describe(ch.oldValue)} → ${describe(ch.newValue)}`).join("; ");
-}
+const describeChanges = ch => ch.map(c => `${c.section}.${c.field}: ${describe(c.oldValue)} → ${describe(c.newValue)}`).join("; ");
+// Older entries only had a `verified` boolean.
+const paymentStatus = e => e.status || (e.verified ? "verified" : "pending");
 
-// Backward/forward-compatible: older entries only had a `verified` boolean.
-function paymentStatus(e) {
-  if (e.status) return e.status;
-  return e.verified ? "verified" : "pending";
-}
 function calc(deal) {
   const p = deal.pricing;
-  const otherDiscountsTotal = (p.otherDiscounts || []).reduce((s, o) => s + num(o.amount), 0);
-  const claimableOtherDiscounts = (p.otherDiscounts || []).filter(o => o.claimable).reduce((s, o) => s + num(o.amount), 0);
+  const otherDiscountsTotal = sum(p.otherDiscounts || [], o => o.amount);
   const netPrice = num(p.exshowroom) - num(p.tmlDiscount) - num(p.dealerDiscount) - num(p.vasNfaDiscount) - otherDiscountsTotal;
-  const adds = ["tcs", "tr", "insurance", "registration", "permit", "fleetedgeVltd", "vasAmc", "bodyFabCharge", "choiceHsrp", "transportation"].reduce((s, k) => s + num(p[k]), 0);
+  const adds = sum(["tcs", "tr", "insurance", "registration", "permit", "fleetedgeVltd", "vasAmc", "bodyFabCharge", "choiceHsrp", "transportation"], k => p[k]);
   const totalOnRoad = netPrice + adds;
   const netOnRoad = totalOnRoad - num(p.exchangeBonus);
-  // All money received is tracked in the dated payment log now — nothing else feeds "collected".
-  // A rejected entry (e.g. cheque bounced) never counted as money in hand.
-  const totalCollected = (deal.paymentLog || []).filter(e => paymentStatus(e) !== "rejected").reduce((s, e) => s + num(e.amount), 0);
-  // Last-moment receipt adjustments (rounding off, final discount) only count once Admin approves them.
-  const approvedAdjustments = (deal.adjustments || []).filter(a => a.status === "approved").reduce((s, a) => s + num(a.amount), 0);
-  const pendingAdjustments = (deal.adjustments || []).filter(a => a.status === "pending").reduce((s, a) => s + num(a.amount), 0);
-  const balance = netOnRoad - totalCollected - approvedAdjustments;
-  // Dealer Discount is the dealer's own cost and is not claimable. TML Cash Discount and
-  // VAS/NFA Discount are always claimable. "Other" discounts are claimable per-line, as chosen.
-  const claimableDiscount = num(p.tmlDiscount) + num(p.vasNfaDiscount) + claimableOtherDiscounts;
-  return {
-    netPrice,
-    totalOnRoad,
-    netOnRoad,
-    totalCollected,
-    approvedAdjustments,
-    pendingAdjustments,
-    balance,
-    claimableDiscount,
-    otherDiscountsTotal
-  };
+  const totalCollected = sum((deal.paymentLog || []).filter(e => paymentStatus(e) !== "rejected"), e => e.amount);
+  const adj = s => sum((deal.adjustments || []).filter(a => a.status === s), a => a.amount);
+  const approvedAdjustments = adj("approved"), pendingAdjustments = adj("pending");
+  return { netPrice, totalOnRoad, netOnRoad, totalCollected, approvedAdjustments, pendingAdjustments, balance: netOnRoad - totalCollected - approvedAdjustments, otherDiscountsTotal };
 }
-function expenseCap(deal, category) {
-  const field = EXPENSE_CATEGORIES.find(c => c.id === category)?.pricingField;
-  return field ? num(deal.pricing[field]) : 0;
-}
-function postedSpend(expenses, category, excludeId = null) {
-  return (expenses || []).filter(e => e.category === category && e.status === "posted" && e.id !== excludeId).reduce((s, e) => s + num(e.amount), 0);
-}
-function calcClaim(claim) {
-  if (!claim) return null;
-  const receiptsTotal = (claim.receipts || []).reduce((s, r) => s + num(r.amount), 0);
-  const totalReceived = num(claim.upfrontReceived) + receiptsTotal;
-  const balance = num(claim.claimedAmount) - totalReceived;
-  return {
-    receiptsTotal,
-    totalReceived,
-    balance
-  };
-}
+const expenseCap = (deal, cat) => num(deal.pricing[EXPENSE_CATEGORIES.find(c => c.id === cat)?.pricingField]);
+const postedSpend = (expenses, cat, excludeId = null) => sum((expenses || []).filter(e => e.category === cat && e.status === "posted" && e.id !== excludeId), e => e.amount);
 
-// "Pending for claim" until the Claims team settles it (claim closed, or fully received).
-function claimStatus(deal) {
-  const c = calc(deal);
-  if (c.claimableDiscount <= 0) return "none";
-  if (!deal.claim) return "pending";
-  return deal.claim.status === "closed" ? "settled" : "pending";
-}
-function claimPendingAmount(deal) {
-  const c = calc(deal);
-  if (c.claimableDiscount <= 0 || deal.claim && deal.claim.status === "closed") return 0;
-  if (!deal.claim) return c.claimableDiscount;
-  const cc = calcClaim(deal.claim);
-  return Math.max(0, cc.balance);
-}
-
-// Advance-adjustment support: money already collected on another deal beyond
-// what that deal actually needs, available to credit toward this one — Admin only.
 function advanceAdjustedOut(deals, sourceDealId, excludeEntryId = null) {
-  let total = 0;
-  deals.forEach(dl => (dl.paymentLog || []).forEach(e => {
-    if (e.mode === ADMIN_ONLY_PAYMENT_MODE && e.sourceDealId === sourceDealId && e.id !== excludeEntryId) total += num(e.amount);
-  }));
-  return total;
+  return sum(deals.flatMap(d => d.paymentLog || []).filter(e => e.mode === ADMIN_ONLY_PAYMENT_MODE && e.sourceDealId === sourceDealId && e.id !== excludeEntryId), e => e.amount);
 }
-function availableAdvance(deals, sourceDeal, excludeEntryId = null) {
-  const c = calc(sourceDeal);
-  const overpaid = Math.max(0, c.totalCollected - c.netOnRoad);
-  const used = advanceAdjustedOut(deals, sourceDeal.id, excludeEntryId);
-  return Math.max(0, overpaid - used);
+function availableAdvance(deals, src, excludeEntryId = null) {
+  const c = calc(src);
+  return Math.max(0, Math.max(0, c.totalCollected - c.netOnRoad) - advanceAdjustedOut(deals, src.id, excludeEntryId));
 }
+// Flatten a per-deal list (paymentLog / expenses / ...) with deal context attached.
+const flat = (deals, key, pred = () => true) =>
+  deals.flatMap(d => (d[key] || []).filter(pred).map(e => ({ ...e, dealId: d.id, customer: formatParty(d.customer), branch: normalizeBranch(d.branch), chassis: d.vehicle.chassisNo })));
+// Immutable "patch one entry in a list" updater.
+const patchIn = (key, id, patch) => p => ({ ...p, [key]: p[key].map(e => (e.id === id ? { ...e, ...patch } : e)) });
+const dealSub = e => `${e.branch} · ${e.dealId}${e.chassis ? ` · Chassis ${e.chassis}` : ""}`;
 
-/* ---------------------------------------------------------------------- */
+/* ====================================================================== */
 /*  Primitives                                                             */
-/* ---------------------------------------------------------------------- */
+/* ====================================================================== */
 
-function Field({
-  label,
-  value,
-  onChange,
-  readOnly,
-  prefix,
-  onCommit
-}) {
-  const startRef = useRef(value);
-  return /*#__PURE__*/React.createElement("label", {
-    className: "flex flex-col gap-1 text-sm"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "text-xs uppercase tracking-wide text-slate-500 font-semibold"
-  }, label), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center border border-slate-300 rounded-md bg-white focus-within:ring-2 focus-within:ring-blue-700/40 focus-within:border-blue-700"
-  }, prefix && /*#__PURE__*/React.createElement("span", {
-    className: "pl-2 text-slate-400 text-sm"
-  }, prefix), /*#__PURE__*/React.createElement("input", {
-    value: value ?? "",
-    readOnly: readOnly,
-    onFocus: () => {
-      startRef.current = value;
-    },
-    onChange: e => onChange && onChange(e.target.value),
-    onBlur: () => {
-      if (onCommit && startRef.current !== value) onCommit(startRef.current, value);
-    },
-    className: `w-full px-2 py-1.5 rounded-md outline-none text-slate-800 ${readOnly ? "bg-slate-50 text-slate-500" : ""}`
-  })));
+function Field({ label, value, onChange, readOnly, prefix, onCommit }) {
+  const start = useRef(value);
+  return (
+    <label className="fld">
+      <span className="lbl">{label}</span>
+      <span className={`inp ${readOnly ? "ro" : ""}`}>
+        {prefix && <i>{prefix}</i>}
+        <input
+          value={value ?? ""} readOnly={readOnly}
+          onFocus={() => { start.current = value; }}
+          onChange={e => onChange?.(e.target.value)}
+          onBlur={() => { if (onCommit && start.current !== value) onCommit(start.current, value); }}
+        />
+      </span>
+    </label>
+  );
 }
-function Section({
-  title,
-  subtitle,
-  children,
-  defaultOpen = true,
-  accent = "#1B4F9C"
-}) {
+
+function Section({ title, subtitle, children, defaultOpen = true, accent = "#191714" }) {
   const [open, setOpen] = useState(defaultOpen);
-  return /*#__PURE__*/React.createElement("div", {
-    className: "border border-slate-200 rounded-lg overflow-hidden bg-white"
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => setOpen(!open),
-    className: "w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "text-left"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "font-bold text-slate-800",
-    style: {
-      fontFamily: "'Barlow Condensed', sans-serif",
-      fontSize: "17px",
-      letterSpacing: "0.02em"
-    }
-  }, title.toUpperCase()), subtitle && /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-slate-500"
-  }, subtitle)), /*#__PURE__*/React.createElement(ChevronDown, {
-    className: `w-4 h-4 transition-transform ${open ? "rotate-180" : ""}`,
-    style: {
-      color: accent
-    }
-  })), open && /*#__PURE__*/React.createElement("div", {
-    className: "p-4 grid grid-cols-2 md:grid-cols-3 gap-3"
-  }, children));
-}
-function StatusBadge({
-  status
-}) {
-  const m = STATUS_META[status] || STATUS_META.draft;
-  const Icon = m.icon;
-  return /*#__PURE__*/React.createElement("span", {
-    className: "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold",
-    style: {
-      background: m.bg,
-      color: m.color
-    }
-  }, /*#__PURE__*/React.createElement(Icon, {
-    className: "w-3.5 h-3.5"
-  }), " ", m.label);
-}
-function Banner({
-  children
-}) {
-  return /*#__PURE__*/React.createElement("div", {
-    className: "bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-md p-2.5 flex items-start gap-2"
-  }, /*#__PURE__*/React.createElement(AlertTriangle, {
-    className: "w-4 h-4 mt-0.5 shrink-0"
-  }), children);
+  return (
+    <div className="sec">
+      <button className="sec-h" onClick={() => setOpen(!open)}>
+        <span className="flex">
+          <span className="bar" style={{ background: accent }} />
+          <span><span className="h" style={{ display: "block" }}>{title}</span>{subtitle && <span className="sm mute">{subtitle}</span>}</span>
+        </span>
+        <ChevronDown size={16} style={{ color: accent, transform: open ? "rotate(180deg)" : "none", transition: ".2s" }} />
+      </button>
+      {open && <div className="sec-b">{children}</div>}
+    </div>
+  );
 }
 
-// In-app popup form — used instead of window.prompt()/alert(), which browsers
-// commonly block inside sandboxed preview frames like this one.
-function ModalForm({
-  title,
-  message,
-  fields,
-  onClose,
-  onSubmit
-}) {
+const Chip = ({ color, bg, icon: Icon, children }) => (
+  <span className="chip" style={{ "--c": color, "--b": bg }}>{Icon && <Icon size={13} />}{children}</span>
+);
+const StatusBadge = ({ status }) => { const m = STATUS_META[status] || STATUS_META.draft; return <Chip {...m}>{m.label}</Chip>; };
+const Banner = ({ kind = "", icon: Icon = AlertTriangle, children }) => <div className={`banner ${kind}`}><Icon size={16} /><div>{children}</div></div>;
+const Card = ({ title, icon: Icon, right, children }) => (
+  <div className="card">
+    <div className="flex between wrapf" style={{ marginBottom: 12 }}>
+      <div className="flex">{Icon && <Icon size={17} color="#8E5FC7" />}<span className="h">{title}</span></div>{right}
+    </div>
+    {children}
+  </div>
+);
+const Empty = ({ children }) => <div className="mute sm" style={{ fontStyle: "italic", padding: "6px 0" }}>{children}</div>;
+
+// In-app popup form — replaces window.prompt()/alert(), which sandboxed frames block.
+function ModalForm({ title, message, fields, onClose, onSubmit }) {
   const [values, setValues] = useState(() => Object.fromEntries(fields.map(f => [f.name, f.defaultValue ?? ""])));
   const [error, setError] = useState("");
-  const visibleFields = fields.filter(f => !f.showIf || f.showIf(values));
-  const submit = () => {
-    const err = onSubmit(values);
-    if (err) setError(err); else onClose();
-  };
-  return /*#__PURE__*/React.createElement("div", {
-    className: "fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4",
-    onClick: onClose
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "bg-white rounded-lg shadow-xl w-full max-w-sm p-4 space-y-3 overflow-y-auto",
-    style: {
-      maxHeight: "90vh"
-    },
-    onClick: e => e.stopPropagation()
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "font-bold text-slate-800 text-lg",
-    style: {
-      fontFamily: "'Barlow Condensed', sans-serif"
-    }
-  }, title), message && /*#__PURE__*/React.createElement("div", {
-    className: "text-sm text-slate-600"
-  }, message), visibleFields.map(f => /*#__PURE__*/React.createElement("label", {
-    key: f.name,
-    className: "flex flex-col gap-1 text-sm"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "text-xs uppercase tracking-wide text-slate-500 font-semibold"
-  }, f.label), f.type === "select" ? /*#__PURE__*/React.createElement("select", {
-    value: values[f.name],
-    onChange: e => setValues(v => ({
-      ...v,
-      [f.name]: e.target.value
-    })),
-    className: "border border-slate-300 rounded-md px-2 py-1.5 outline-none focus:ring-2 focus:ring-blue-700/40"
-  }, f.options.length === 0 && /*#__PURE__*/React.createElement("option", {
-    value: ""
-  }, "None available"), f.options.map(o => /*#__PURE__*/React.createElement("option", {
-    key: o,
-    value: o
-  }, f.optionLabels?.[o] || o))) : /*#__PURE__*/React.createElement("input", {
-    autoFocus: f.autoFocus,
-    type: f.type === "number" ? "number" : f.type === "date" ? "date" : "text",
-    value: values[f.name],
-    onChange: e => setValues(v => ({
-      ...v,
-      [f.name]: e.target.value
-    })),
-    onKeyDown: e => {
-      if (e.key === "Enter") submit();
-    },
-    className: "border border-slate-300 rounded-md px-2 py-1.5 outline-none focus:ring-2 focus:ring-blue-700/40"
-  }))), error && /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-red-700 bg-red-50 border border-red-200 rounded-md p-2"
-  }, error), /*#__PURE__*/React.createElement("div", {
-    className: "flex justify-end gap-2 pt-2"
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: onClose,
-    className: "text-sm font-semibold text-slate-600 px-3 py-1.5 rounded-md hover:bg-slate-100"
-  }, "Cancel"), /*#__PURE__*/React.createElement("button", {
-    onClick: submit,
-    className: "text-sm font-semibold text-white bg-blue-700 px-3 py-1.5 rounded-md hover:bg-blue-800"
-  }, "Confirm"))));
+  const submit = () => { const err = onSubmit(values); err ? setError(err) : onClose(); };
+  const setV = (name, v) => setValues(s => ({ ...s, [name]: v }));
+  return (
+    <div className="scrim" onClick={onClose}>
+      <div className="modal stack" onClick={e => e.stopPropagation()}>
+        <div className="h" style={{ fontSize: 20 }}>{title}</div>
+        {message && <div className="sm mute">{message}</div>}
+        {fields.filter(f => !f.showIf || f.showIf(values)).map(f => (
+          <label key={f.name} className="fld">
+            <span className="lbl">{f.label}</span>
+            {f.type === "select" ? (
+              <select className="sel" value={values[f.name]} onChange={e => setV(f.name, e.target.value)}>
+                {f.options.length === 0 && <option value="">None available</option>}
+                {f.options.map(o => <option key={o} value={o}>{f.optionLabels?.[o] || o}</option>)}
+              </select>
+            ) : (
+              <span className="inp">
+                <input autoFocus={f.autoFocus} type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"}
+                  value={values[f.name]} onChange={e => setV(f.name, e.target.value)} onKeyDown={e => e.key === "Enter" && submit()} />
+              </span>
+            )}
+          </label>
+        ))}
+        {error && <Banner kind="bad">{error}</Banner>}
+        <div className="flex" style={{ justifyContent: "flex-end", paddingTop: 6 }}>
+          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className="btn pri" onClick={submit}>Confirm</button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
-/* ---------------------------------------------------------------------- */
-/*  Sign-in (demo identity — not real auth)                                */
-/* ---------------------------------------------------------------------- */
-
-function SignIn({
-  onSignIn
-}) {
-  const [name, setName] = useState("");
-  const [role, setRole] = useState(null);
-  const [branch, setBranch] = useState(BRANCHES[0]);
-  return /*#__PURE__*/React.createElement("div", {
-    className: "min-h-screen overflow-y-auto bg-slate-900 p-6 flex justify-center"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "w-full max-w-md py-6"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "text-center mb-6"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "inline-flex items-center gap-2 text-white mb-1"
-  }, /*#__PURE__*/React.createElement(Truck, {
-    className: "w-7 h-7 text-amber-400"
-  }), /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontFamily: "'Barlow Condensed', sans-serif"
-    },
-    className: "text-3xl font-bold tracking-tight"
-  }, "PUNYA AUTOWHEELS")), /*#__PURE__*/React.createElement("div", {
-    className: "text-slate-400 text-sm tracking-wide"
-  }, "Flow-validation demo — not the deployed app")), /*#__PURE__*/React.createElement("div", {
-    className: "bg-white rounded-xl shadow-2xl p-6 space-y-5"
-  }, /*#__PURE__*/React.createElement(Banner, null, "This is a demo to agree on the workflow. It runs in your browser only — nothing here is the real secured login you'll deploy."), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "text-xs uppercase tracking-wide text-slate-500 font-semibold"
-  }, "Your name"), /*#__PURE__*/React.createElement("input", {
-    value: name,
-    onChange: e => setName(e.target.value),
-    placeholder: "e.g. Ravi Kumar",
-    className: "mt-1 w-full border border-slate-300 rounded-md px-3 py-2 outline-none focus:ring-2 focus:ring-blue-700/40 focus:border-blue-700"
-  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "text-xs uppercase tracking-wide text-slate-500 font-semibold"
-  }, "Branch"), /*#__PURE__*/React.createElement("select", {
-    value: branch,
-    onChange: e => setBranch(e.target.value),
-    className: "mt-1 w-full border border-slate-300 rounded-md px-3 py-2 outline-none focus:ring-2 focus:ring-blue-700/40"
-  }, BRANCHES.map(b => /*#__PURE__*/React.createElement("option", {
-    key: b
-  }, b)))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "text-xs uppercase tracking-wide text-slate-500 font-semibold mb-2 block"
-  }, "Role to test as"), /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-1 gap-2"
-  }, ROLES.map(r => /*#__PURE__*/React.createElement("button", {
-    key: r.id,
-    onClick: () => setRole(r.id),
-    className: `text-left px-3 py-2.5 rounded-lg border-2 transition-all ${role === r.id ? "shadow-sm" : "border-slate-200 hover:border-slate-300"}`,
-    style: role === r.id ? {
-      borderColor: r.color,
-      background: r.color + "10"
-    } : {}
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "font-bold text-sm",
-    style: {
-      color: role === r.id ? r.color : "#1e293b"
-    }
-  }, r.label), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-slate-500"
-  }, r.desc))))), /*#__PURE__*/React.createElement("button", {
-    disabled: !name.trim() || !role,
-    onClick: () => onSignIn({
-      name: name.trim(),
-      role,
-      branch
-    }),
-    className: "w-full py-2.5 rounded-md font-semibold text-white bg-black disabled:bg-slate-300 disabled:cursor-not-allowed hover:bg-slate-800 transition-colors"
-  }, "Enter console"), (!name.trim() || !role) && /*#__PURE__*/React.createElement("p", {
-    className: "text-xs text-amber-600 text-center -mt-2"
-  }, !name.trim() ? "Type your name above, then pick a role, to enable this button." : "Pick a role above to enable this button."), /*#__PURE__*/React.createElement("p", {
-    className: "text-xs text-slate-400 text-center"
-  }, "Switch roles anytime with the logout button — try the same deal as Sales, then Admin, then RTO, then Claims."))));
-}
-function OtherDiscountsEditor({
-  value,
-  onChange,
-  readOnly,
-  onCommit
-}) {
+function OtherDiscountsEditor({ value, onChange, readOnly, onCommit }) {
   const list = value || [];
-  const containerRef = useRef(null);
-  const snapshotRef = useRef(null);
-  const capturingRef = useRef(false);
-  const update = (id, patch) => onChange(list.map(o => o.id === id ? {
-    ...o,
-    ...patch
-  } : o));
-  const add = () => {
-    const next = [...list, {
-      id: "OD" + Date.now().toString(36),
-      label: "",
-      amount: "",
-      claimable: true
-    }];
-    onChange(next);
-    if (onCommit) onCommit(list, next);
-  };
-  const remove = id => {
-    const next = list.filter(o => o.id !== id);
-    onChange(next);
-    if (onCommit) onCommit(list, next);
-  };
-  const handleFocusCapture = () => {
-    if (!capturingRef.current) {
-      capturingRef.current = true;
-      snapshotRef.current = list;
-    }
-  };
-  const handleBlurCapture = e => {
-    if (containerRef.current && !containerRef.current.contains(e.relatedTarget)) {
-      capturingRef.current = false;
-      if (onCommit && JSON.stringify(snapshotRef.current) !== JSON.stringify(list)) onCommit(snapshotRef.current, list);
-    }
-  };
-  return /*#__PURE__*/React.createElement("div", {
-    ref: containerRef,
-    onFocusCapture: handleFocusCapture,
-    onBlurCapture: handleBlurCapture,
-    className: "col-span-2 md:col-span-3 space-y-2"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "text-xs uppercase tracking-wide text-slate-500 font-semibold"
-  }, "Other discounts (user-defined)"), !readOnly && /*#__PURE__*/React.createElement("button", {
-    onClick: add,
-    className: "text-xs font-semibold text-blue-700 hover:underline flex items-center gap-1"
-  }, /*#__PURE__*/React.createElement(Plus, {
-    className: "w-3 h-3"
-  }), " Add discount line")), list.length === 0 && /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-slate-400 italic"
-  }, "No additional discounts."), list.map(o => /*#__PURE__*/React.createElement("div", {
-    key: o.id,
-    className: "flex flex-wrap items-center gap-2 bg-slate-50 border border-slate-100 rounded-md p-2"
-  }, /*#__PURE__*/React.createElement("input", {
-    placeholder: "Discount label (e.g. Festival offer)",
-    value: o.label,
-    readOnly: readOnly,
-    onChange: e => update(o.id, {
-      label: e.target.value
-    }),
-    className: `flex-1 border border-slate-300 rounded-md px-2 py-1 text-sm outline-none ${readOnly ? "bg-slate-100 text-slate-500" : "bg-white"}`,
-    style: {
-      minWidth: "140px"
-    }
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center border border-slate-300 rounded-md bg-white"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "pl-2 text-slate-400 text-sm"
-  }, "₹"), /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    value: o.amount,
-    readOnly: readOnly,
-    onChange: e => update(o.id, {
-      amount: e.target.value
-    }),
-    className: "w-28 px-2 py-1 text-sm outline-none rounded-md"
-  })), /*#__PURE__*/React.createElement("label", {
-    className: "flex items-center gap-1 text-xs text-slate-600"
-  }, /*#__PURE__*/React.createElement("input", {
-    type: "checkbox",
-    checked: !!o.claimable,
-    disabled: readOnly,
-    onChange: e => update(o.id, {
-      claimable: e.target.checked
-    })
-  }), " Claimable from TML"), !readOnly && /*#__PURE__*/React.createElement("button", {
-    onClick: () => remove(o.id),
-    className: "text-xs text-red-600 hover:underline"
-  }, "Remove"))));
+  const box = useRef(null), snap = useRef(null), capturing = useRef(false);
+  const update = (id, patch) => onChange(list.map(o => (o.id === id ? { ...o, ...patch } : o)));
+  const change = next => { onChange(next); onCommit?.(list, next); };
+  return (
+    <div
+      ref={box} className="span stack-s"
+      onFocusCapture={() => { if (!capturing.current) { capturing.current = true; snap.current = list; } }}
+      onBlurCapture={e => {
+        if (box.current && !box.current.contains(e.relatedTarget)) {
+          capturing.current = false;
+          if (onCommit && JSON.stringify(snap.current) !== JSON.stringify(list)) onCommit(snap.current, list);
+        }
+      }}
+    >
+      <div className="flex between">
+        <span className="lbl">Other discounts (user-defined)</span>
+        {!readOnly && <button className="lnk" onClick={() => change([...list, { id: "OD" + Date.now().toString(36), label: "", amount: "" }])}>+ Add discount line</button>}
+      </div>
+      {list.length === 0 && <Empty>No additional discounts.</Empty>}
+      {list.map(o => (
+        <div key={o.id} className="flex wrapf sub">
+          <span className={`inp grow ${readOnly ? "ro" : ""}`} style={{ minWidth: 150 }}>
+            <input placeholder="Discount label (e.g. Festival offer)" value={o.label} readOnly={readOnly} onChange={e => update(o.id, { label: e.target.value })} />
+          </span>
+          <span className={`inp ${readOnly ? "ro" : ""}`} style={{ width: 140 }}>
+            <i>₹</i><input type="number" value={o.amount} readOnly={readOnly} onChange={e => update(o.id, { amount: e.target.value })} />
+          </span>
+          {!readOnly && <button className="lnk bad" onClick={() => change(list.filter(x => x.id !== o.id))}>Remove</button>}
+        </div>
+      ))}
+    </div>
+  );
 }
 
-/* ---------------------------------------------------------------------- */
+/* ====================================================================== */
 /*  Deal editor                                                            */
-/* ---------------------------------------------------------------------- */
+/* ====================================================================== */
 
-function DealEditor({
-  deal: d,
-  deals,
-  session,
-  onUpdate,
-  onBack,
-  onDelete
-}) {
+function DealEditor({ deal: d, deals, session, onUpdate, onBack, onDelete }) {
   const c = calc(d);
-  const isSales = session.role === "sales";
-  const isAdmin = session.role === "admin";
-  const isAccounts = session.role === "accounts";
-  const isRto = session.role === "rto";
-  const isClaims = session.role === "claims";
+  const { role } = session;
+  const isSales = role === "sales", isAdmin = role === "admin", isAccounts = role === "accounts", isRto = role === "rto";
   const chassis = d.vehicle.chassisNo;
   const hasPendingAmendment = (d.amendments || []).some(a => a.status === "pending");
   const [editMode, setEditMode] = useState(false);
-  // Draft/Rejected: freely editable, applies immediately (still Sales's own working copy).
-  // Pending: fully locked — nobody edits until Admin approves or rejects.
-  // Approved / Delivered: locked by default; Sales must explicitly enter Edit mode, then
-  // Discard or Submit — nothing applies just from typing, so an accidental edit can't
-  // slip through. Closed is the true hard lock — nothing edits after that.
-  const preApprovalStage = d.status === STATUS.DRAFT || d.status === STATUS.REJECTED;
-  const postApprovalEditableStage = d.status === STATUS.APPROVED || d.status === STATUS.DELIVERED;
-  // Only Sales ever touches Customer / Vehicle / Pricing. Admin's role here is
-  // strictly to approve or reject — never to edit these fields directly.
-  const canTouchCoreFields = isSales && !hasPendingAmendment && (preApprovalStage || postApprovalEditableStage && editMode);
-  // Sales edits are direct while still in Draft/Rejected; once Approved or Delivered,
-  // edits are staged as an amendment awaiting Admin approval rather than applied right away.
-  const gated = postApprovalEditableStage;
-  const [coreDraft, setCoreDraft] = useState({
-    customer: d.customer,
-    vehicle: d.vehicle,
-    pricing: d.pricing
-  });
+  const [modal, setModal] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const coreDirty = gated && JSON.stringify(coreDraft) !== JSON.stringify({
-    customer: d.customer,
-    vehicle: d.vehicle,
-    pricing: d.pricing
-  });
 
-  // Every change below saves immediately via onUpdate — there is no separate
-  // "draft" copy sitting only in this component, so nothing is ever lost by
-  // navigating away or switching logins without clicking a Save button.
-  const withLog = (patchFn, note) => onUpdate(prev => ({
-    ...patchFn(prev),
-    activity: [...prev.activity, {
-      at: new Date().toISOString(),
-      by: session.name,
-      role: session.role,
-      note
-    }]
-  }));
-  const set = (section, field, value) => onUpdate(prev => ({
-    ...prev,
-    [section]: {
-      ...prev[section],
-      [field]: value
-    }
-  }));
+  // Draft/Rejected: edits apply immediately. Pending: fully locked. Approved/Delivered: locked until
+  // Sales enters Edit mode, then changes are staged and need Admin approval. Closed: hard lock.
+  const preApproval = d.status === STATUS.DRAFT || d.status === STATUS.REJECTED;
+  const postApproval = d.status === STATUS.APPROVED || d.status === STATUS.DELIVERED;
+  const canTouch = isSales && !hasPendingAmendment && (preApproval || (postApproval && editMode));
+  const gated = postApproval;
+  const snapshot = () => ({ customer: d.customer, vehicle: d.vehicle, pricing: d.pricing });
+  const [coreDraft, setCoreDraft] = useState(snapshot);
+  const coreDirty = gated && JSON.stringify(coreDraft) !== JSON.stringify(snapshot());
 
-  // Writes one audit-log entry for an actual applied change (called once per
-  // edit, on blur/commit — not per keystroke).
-  const commitFieldChange = (section, field, oldValue, newValue) => {
-    if (JSON.stringify(oldValue) === JSON.stringify(newValue)) return;
-    withLog(p => p, `Changed ${section}.${field}: ${describe(oldValue)} → ${describe(newValue)}`);
-  };
-
-  // Customer / vehicle / pricing fields go through here. While gated (Approved +
-  // Edit mode), this only stages the change locally until Submit is clicked.
+  // Every change saves immediately through onUpdate; nothing lives only in this component.
+  const withLog = (patchFn, note) => onUpdate(prev => ({ ...patchFn(prev), activity: [...prev.activity, logEntry(session.name, role, note)] }));
+  const set = (section, field, value) => onUpdate(prev => ({ ...prev, [section]: { ...prev[section], [field]: value } }));
+  const commitFieldChange = (section, field, o, n) => { if (JSON.stringify(o) !== JSON.stringify(n)) withLog(p => p, `Changed ${section}.${field}: ${describe(o)} → ${describe(n)}`); };
   const editCore = (section, field, value) => {
-    setCoreDraft(prev => ({
-      ...prev,
-      [section]: {
-        ...prev[section],
-        [field]: value
-      }
-    }));
+    setCoreDraft(prev => ({ ...prev, [section]: { ...prev[section], [field]: value } }));
     if (!gated) set(section, field, value);
   };
-  // Fires once per edit (on blur) for fields that apply immediately (Draft/Rejected).
-  const editCoreCommit = (section, field, oldValue, newValue) => {
-    if (!gated) commitFieldChange(section, field, oldValue, newValue);
-  };
-  const discardEdits = () => {
-    setCoreDraft({
-      customer: d.customer,
-      vehicle: d.vehicle,
-      pricing: d.pricing
-    });
+  const editCoreCommit = (section, field, o, n) => { if (!gated) commitFieldChange(section, field, o, n); };
+  const discardEdits = () => { setCoreDraft(snapshot()); setEditMode(false); };
+
+  const requestAmendment = () => {
+    const changes = ["customer", "vehicle", "pricing"].flatMap(section =>
+      Object.keys(coreDraft[section])
+        .filter(field => JSON.stringify(coreDraft[section][field]) !== JSON.stringify(d[section][field]))
+        .map(field => ({ section, field, oldValue: d[section][field], newValue: coreDraft[section][field] })));
+    if (!changes.length) return setEditMode(false);
+    const amendment = { id: "A" + Date.now().toString(36), changes, requestedBy: session.name, requestedAt: stamp(), status: "pending" };
+    withLog(p => ({ ...p, amendments: [...(p.amendments || []), amendment] }), `Requested approval for ${changes.length} field change(s) — ${describeChanges(changes)}`);
     setEditMode(false);
   };
-  const requestAmendment = () => {
-    const changes = [];
-    ["customer", "vehicle", "pricing"].forEach(section => {
-      Object.keys(coreDraft[section]).forEach(field => {
-        if (JSON.stringify(coreDraft[section][field]) !== JSON.stringify(d[section][field])) {
-          changes.push({
-            section,
-            field,
-            oldValue: d[section][field],
-            newValue: coreDraft[section][field]
-          });
-        }
-      });
-    });
-    if (!changes.length) {
-      setEditMode(false);
+  const reviewAmendment = (id, approved) => {
+    const am = (d.amendments || []).find(a => a.id === id);
+    if (!am) return;
+    withLog(p => {
+      let next = { ...p };
+      if (approved) am.changes.forEach(ch => { next = { ...next, [ch.section]: { ...next[ch.section], [ch.field]: ch.newValue } }; });
+      return { ...next, amendments: p.amendments.map(a => (a.id === id ? { ...a, status: approved ? "approved" : "rejected", reviewedBy: session.name, reviewedAt: stamp() } : a)) };
+    }, `${approved ? "Approved" : "Rejected"} field change request — ${describeChanges(am.changes)}`);
+  };
+
+  const submitForApproval = () => {
+    const validBranch = normalizeBranch(d.branch);
+    if (!validBranch || !BRANCHES.includes(validBranch)) {
+      alert("⚠️ Branch selection is mandatory! Please select one of the 4 branches (Sasaram, Bihiya, Buxas, or Mohaniya) before submitting for Admin approval.");
       return;
     }
-    const amendment = {
-      id: "A" + Date.now().toString(36),
-      changes,
-      requestedBy: session.name,
-      requestedAt: new Date().toISOString(),
-      status: "pending"
-    };
-    withLog(p => ({
-      ...p,
-      amendments: [...(p.amendments || []), amendment]
-    }), `Requested approval for ${changes.length} field change(s) — ${describeChanges(changes)}`);
-    setEditMode(false);
+    withLog(p => ({ ...p, branch: validBranch, status: STATUS.PENDING, approval: { status: STATUS.PENDING, by: "", at: "", remarks: "" } }), "Submitted pricing for admin approval");
   };
-  const approveAmendment = id => {
-    const amendment = (d.amendments || []).find(a => a.id === id);
-    if (!amendment) return;
-    withLog(p => {
-      let next = {
-        ...p
-      };
-      amendment.changes.forEach(ch => {
-        next = {
-          ...next,
-          [ch.section]: {
-            ...next[ch.section],
-            [ch.field]: ch.newValue
-          }
-        };
-      });
-      return {
-        ...next,
-        amendments: p.amendments.map(a => a.id === id ? {
-          ...a,
-          status: "approved",
-          reviewedBy: session.name,
-          reviewedAt: new Date().toISOString()
-        } : a)
-      };
-    }, `Approved field change request — ${describeChanges(amendment.changes)}`);
-  };
-  const rejectAmendment = id => {
-    const amendment = (d.amendments || []).find(a => a.id === id);
-    withLog(p => ({
-      ...p,
-      amendments: (p.amendments || []).map(a => a.id === id ? {
-        ...a,
-        status: "rejected",
-        reviewedBy: session.name,
-        reviewedAt: new Date().toISOString()
-      } : a)
-    }), `Rejected field change request${amendment ? ` — ${describeChanges(amendment.changes)}` : ""}`);
-  };
-  const submitForApproval = () => withLog(p => ({
-    ...p,
-    status: STATUS.PENDING,
-    approval: {
-      status: STATUS.PENDING,
-      by: "",
-      at: "",
-      remarks: ""
-    }
-  }), "Submitted pricing for admin approval");
-  const approve = () => withLog(p => ({
-    ...p,
-    status: STATUS.APPROVED,
-    approval: {
-      status: "approved",
-      by: session.name,
-      at: new Date().toISOString(),
-      remarks: ""
-    }
-  }), "Pricing approved");
-  const [modal, setModal] = useState(null); // { title, fields, onSubmit }
-
+  const approve = () => withLog(p => ({ ...p, status: STATUS.APPROVED, approval: { status: "approved", by: session.name, at: stamp(), remarks: "" } }), "Pricing approved");
   const reject = () => setModal({
     title: "Reject pricing",
-    fields: [{
-      name: "remarks",
-      label: "Reason (shown to Sales)",
-      autoFocus: true
-    }],
-    onSubmit: v => {
-      withLog(p => ({
-        ...p,
-        status: STATUS.REJECTED,
-        approval: {
-          status: "rejected",
-          by: session.name,
-          at: new Date().toISOString(),
-          remarks: v.remarks || ""
-        }
-      }), "Pricing rejected" + (v.remarks ? `: ${v.remarks}` : ""));
-    }
+    fields: [{ name: "remarks", label: "Reason (shown to Sales)", autoFocus: true }],
+    onSubmit: v => withLog(p => ({ ...p, status: STATUS.REJECTED, approval: { status: "rejected", by: session.name, at: stamp(), remarks: v.remarks || "" } }), "Pricing rejected" + (v.remarks ? `: ${v.remarks}` : "")),
   });
-  // Delivery can happen before the financer's payment actually lands — Admin can mark
-  // a deal delivered any time it's approved, regardless of outstanding balance.
-  const markDelivered = () => withLog(p => ({
-    ...p,
-    status: STATUS.DELIVERED
-  }), "Marked as delivered by Admin");
-  // Closing is the real, final lock on Customer/Vehicle/Pricing — only once the balance
-  // (net of approved adjustments) is actually cleared.
-  const closeDeal = () => withLog(p => ({
-    ...p,
-    status: STATUS.CLOSED
-  }), "Closed by Admin — all customer commitments now locked");
+  // Delivery can precede the financer's payment — Admin may mark delivered any time once approved.
+  const markDelivered = () => withLog(p => ({ ...p, status: STATUS.DELIVERED }), "Marked as delivered by Admin");
+  const closeDeal = () => withLog(p => ({ ...p, status: STATUS.CLOSED }), "Closed by Admin — all customer commitments now locked");
+
   const addPayment = () => {
     const modeOptions = isAdmin ? [...PAYMENT_MODES, ADMIN_ONLY_PAYMENT_MODE] : PAYMENT_MODES;
-    const advanceCandidates = deals.filter(dl => dl.id !== d.id).map(dl => ({
-      id: dl.id,
-      avail: availableAdvance(deals, dl),
-      label: `${dl.customer.name || "Untitled"} · Chassis ${dl.vehicle.chassisNo || "—"} · Available ${inr(availableAdvance(deals, dl))}`
-    })).filter(x => x.avail > 0);
+    const advances = deals.filter(dl => dl.id !== d.id).map(dl => {
+      const avail = availableAdvance(deals, dl);
+      return { id: dl.id, avail, label: `${formatParty(dl.customer)} · ${normalizeBranch(dl.branch)} · Chassis ${dl.vehicle.chassisNo || "—"} · Available ${inr(avail)}` };
+    }).filter(x => x.avail > 0);
     setModal({
       title: "Log customer payment",
-      fields: [{
-        name: "date",
-        label: "Date of receipt",
-        type: "date",
-        defaultValue: new Date().toISOString().slice(0, 10),
-        autoFocus: true
-      }, {
-        name: "amount",
-        label: "Amount received (₹)",
-        type: "number"
-      }, {
-        name: "mode",
-        label: "Payment mode",
-        type: "select",
-        options: modeOptions,
-        defaultValue: "Cash"
-      }, {
-        name: "sourceDealId",
-        label: "Source deal (whose advance is being adjusted)",
-        type: "select",
-        options: advanceCandidates.map(c => c.id),
-        optionLabels: Object.fromEntries(advanceCandidates.map(c => [c.id, c.label])),
-        defaultValue: advanceCandidates[0]?.id || "",
-        showIf: v => v.mode === ADMIN_ONLY_PAYMENT_MODE
-      }, {
-        name: "reference",
-        label: "Reference / UTR / Cheque No. (optional)",
-        showIf: v => v.mode !== ADMIN_ONLY_PAYMENT_MODE
-      }],
+      fields: [
+        { name: "date", label: "Date of receipt", type: "date", defaultValue: today(), autoFocus: true },
+        { name: "amount", label: "Amount received (₹)", type: "number" },
+        { name: "mode", label: "Payment mode", type: "select", options: modeOptions, defaultValue: "Cash" },
+        { name: "sourceDealId", label: "Source deal (whose advance is being adjusted)", type: "select", options: advances.map(x => x.id), optionLabels: Object.fromEntries(advances.map(x => [x.id, x.label])), defaultValue: advances[0]?.id || "", showIf: v => v.mode === ADMIN_ONLY_PAYMENT_MODE },
+        { name: "reference", label: "Reference / UTR / Cheque No. (optional)", showIf: v => v.mode !== ADMIN_ONLY_PAYMENT_MODE },
+      ],
       onSubmit: v => {
         const amount = parseFloat(v.amount);
         if (!amount || isNaN(amount) || amount <= 0) return "Enter a valid amount.";
         if (!v.date) return "Pick a date of receipt.";
+        const adv = v.mode === ADMIN_ONLY_PAYMENT_MODE;
         let sourceLabel = "";
-        if (v.mode === ADMIN_ONLY_PAYMENT_MODE) {
+        if (adv) {
           if (!isAdmin) return "Only Admin can use Advance Adjustment.";
           const source = deals.find(dl => dl.id === v.sourceDealId);
           if (!source) return "Select a valid source deal.";
           const avail = availableAdvance(deals, source);
           if (amount > avail) return `Exceeds available advance on that deal (${inr(avail)}).`;
-          sourceLabel = ` from advance on ${source.customer.name || source.id}`;
+          sourceLabel = ` from advance on ${formatParty(source.customer) || source.id}`;
         }
         const entry = {
-          id: "P" + Date.now().toString(36),
-          date: v.date,
-          amount,
-          mode: v.mode,
-          reference: v.mode === ADMIN_ONLY_PAYMENT_MODE ? "" : v.reference || "",
-          sourceDealId: v.mode === ADMIN_ONLY_PAYMENT_MODE ? v.sourceDealId : undefined,
+          id: "P" + Date.now().toString(36), date: v.date, amount, mode: v.mode,
+          reference: adv ? "" : v.reference || "", sourceDealId: adv ? v.sourceDealId : undefined,
           enteredBy: session.name,
-          // Accounts recording their own receipt doesn't need Accounts to verify it again.
-          status: isAccounts ? "verified" : "pending",
-          verifiedBy: isAccounts ? session.name : undefined
+          // Accounts recording their own receipt needn't verify it again.
+          status: isAccounts ? "verified" : "pending", verifiedBy: isAccounts ? session.name : undefined,
         };
-        withLog(p => ({
-          ...p,
-          paymentLog: [...p.paymentLog, entry]
-        }), `Logged payment ${inr(amount)} via ${v.mode}${sourceLabel} (received ${v.date})${isAccounts ? " — recorded as received" : ""}`);
-      }
+        withLog(p => ({ ...p, paymentLog: [...p.paymentLog, entry] }), `Logged payment ${inr(amount)} via ${v.mode}${sourceLabel} (received ${v.date})${isAccounts ? " — recorded as received" : ""}`);
+      },
     });
   };
-  const verifyPayment = id => {
-    const entry = d.paymentLog.find(e => e.id === id);
-    withLog(p => ({
-      ...p,
-      paymentLog: p.paymentLog.map(e => e.id === id ? {
-        ...e,
-        status: "verified",
-        verifiedBy: session.name
-      } : e)
-    }), `Verified payment ${entry ? inr(entry.amount) + " via " + entry.mode : ""}`);
-  };
+  const payLabel = id => { const e = d.paymentLog.find(x => x.id === id); return e ? `${inr(e.amount)} via ${e.mode}` : ""; };
+  const verifyPayment = id => withLog(patchIn("paymentLog", id, { status: "verified", verifiedBy: session.name }), `Verified payment ${payLabel(id)}`);
   const rejectPayment = id => {
-    const entry = d.paymentLog.find(e => e.id === id);
+    const e = d.paymentLog.find(x => x.id === id);
     setModal({
       title: "Reject this payment",
-      message: entry ? `${inr(entry.amount)} via ${entry.mode}, received ${entry.date}` : undefined,
-      fields: [{
-        name: "reason",
-        label: "Reason (e.g. cheque bounced, amount mismatch)",
-        autoFocus: true
-      }],
-      onSubmit: v => {
-        withLog(p => ({
-          ...p,
-          paymentLog: p.paymentLog.map(e => e.id === id ? {
-            ...e,
-            status: "rejected",
-            rejectedBy: session.name,
-            rejectionReason: v.reason || ""
-          } : e)
-        }), `Rejected payment ${entry ? inr(entry.amount) + " via " + entry.mode : ""}${v.reason ? ": " + v.reason : ""}`);
-      }
+      message: e ? `${inr(e.amount)} via ${e.mode}, received ${e.date}` : undefined,
+      fields: [{ name: "reason", label: "Reason (e.g. cheque bounced, amount mismatch)", autoFocus: true }],
+      onSubmit: v => withLog(patchIn("paymentLog", id, { status: "rejected", rejectedBy: session.name, rejectionReason: v.reason || "" }), `Rejected payment ${payLabel(id)}${v.reason ? ": " + v.reason : ""}`),
     });
   };
 
-  // Last-moment adjustments at receipt time (rounding off, a final discount) —
-  // raised by whoever is taking the payment, but only counts once Admin approves it.
+  // Last-moment adjustments (rounding off, final discount) only count once Admin approves.
   const addAdjustment = () => setModal({
     title: "Add receipt adjustment",
-    fields: [{
-      name: "amount",
-      label: "Adjustment amount (₹)",
-      type: "number",
-      autoFocus: true
-    }, {
-      name: "reason",
-      label: "Reason (e.g. rounding off, final negotiated discount)"
-    }, {
-      name: "date",
-      label: "Date",
-      type: "date",
-      defaultValue: new Date().toISOString().slice(0, 10)
-    }],
+    fields: [
+      { name: "amount", label: "Adjustment amount (₹)", type: "number", autoFocus: true },
+      { name: "reason", label: "Reason (e.g. rounding off, final negotiated discount)" },
+      { name: "date", label: "Date", type: "date", defaultValue: today() },
+    ],
     onSubmit: v => {
       const amount = parseFloat(v.amount);
       if (!amount || isNaN(amount) || amount <= 0) return "Enter a valid amount.";
-      const entry = {
-        id: "ADJ" + Date.now().toString(36),
-        amount,
-        reason: v.reason || "",
-        date: v.date || new Date().toISOString().slice(0, 10),
-        enteredBy: session.name,
-        status: "pending"
-      };
-      withLog(p => ({
-        ...p,
-        adjustments: [...(p.adjustments || []), entry]
-      }), `Requested receipt adjustment ${inr(amount)}${v.reason ? ": " + v.reason : ""} — awaiting Admin approval`);
-    }
+      const entry = { id: "ADJ" + Date.now().toString(36), amount, reason: v.reason || "", date: v.date || today(), enteredBy: session.name, status: "pending" };
+      withLog(p => ({ ...p, adjustments: [...(p.adjustments || []), entry] }), `Requested receipt adjustment ${inr(amount)}${v.reason ? ": " + v.reason : ""} — awaiting Admin approval`);
+    },
   });
-  const approveAdjustment = id => {
-    const entry = (d.adjustments || []).find(a => a.id === id);
-    withLog(p => ({
-      ...p,
-      adjustments: p.adjustments.map(a => a.id === id ? {
-        ...a,
-        status: "approved",
-        approvedBy: session.name
-      } : a)
-    }), `Approved receipt adjustment ${entry ? inr(entry.amount) : ""}`);
+  const reviewAdjustment = (id, approved) => {
+    const e = (d.adjustments || []).find(a => a.id === id);
+    withLog(patchIn("adjustments", id, { status: approved ? "approved" : "rejected", approvedBy: session.name }), `${approved ? "Approved" : "Rejected"} receipt adjustment ${e ? inr(e.amount) : ""}`);
   };
-  const rejectAdjustment = id => {
-    const entry = (d.adjustments || []).find(a => a.id === id);
-    withLog(p => ({
-      ...p,
-      adjustments: p.adjustments.map(a => a.id === id ? {
-        ...a,
-        status: "rejected",
-        approvedBy: session.name
-      } : a)
-    }), `Rejected receipt adjustment ${entry ? inr(entry.amount) : ""}`);
-  };
+
   const addExpense = category => setModal({
-    title: `Log ${EXPENSE_CATEGORIES.find(c => c.id === category)?.label} expense`,
-    fields: [{
-      name: "amount",
-      label: "Amount actually spent (₹)",
-      type: "number",
-      autoFocus: true
-    }, {
-      name: "remarks",
-      label: "Remarks (vendor, invoice no.) — optional"
-    }],
+    title: `Log ${EXPENSE_CATEGORIES.find(x => x.id === category)?.label} expense`,
+    fields: [{ name: "amount", label: "Amount actually spent (₹)", type: "number", autoFocus: true }, { name: "remarks", label: "Remarks (vendor, invoice no.) — optional" }],
     onSubmit: v => {
       const amount = parseFloat(v.amount);
       if (!amount || isNaN(amount) || amount <= 0) return "Enter a valid amount.";
       withLog(p => {
-        const cap = expenseCap(p, category);
-        const already = postedSpend(p.expenses, category);
-        const status = already + amount > cap ? "pending_approval" : "posted";
-        const entry = {
-          id: "E" + Date.now().toString(36),
-          category,
-          amount,
-          remarks: v.remarks || "",
-          status,
-          enteredBy: session.name,
-          createdAt: new Date().toISOString()
-        };
-        return {
-          ...p,
-          expenses: [...p.expenses, entry]
-        };
+        const status = postedSpend(p.expenses, category) + amount > expenseCap(p, category) ? "pending_approval" : "posted";
+        return { ...p, expenses: [...p.expenses, { id: "E" + Date.now().toString(36), category, amount, remarks: v.remarks || "", status, enteredBy: session.name, createdAt: stamp() }] };
       }, `Logged ${category} expense ${inr(amount)}`);
-    }
+    },
   });
-  const approveExpense = id => {
-    const entry = d.expenses.find(e => e.id === id);
-    withLog(p => ({
-      ...p,
-      expenses: p.expenses.map(e => e.id === id ? {
-        ...e,
-        status: "posted",
-        approvedBy: session.name
-      } : e)
-    }), `Approved over-receipt expense ${entry ? EXPENSE_CATEGORIES.find(c => c.id === entry.category)?.label + " " + inr(entry.amount) : ""}`);
+  const reviewExpense = (id, approved) => {
+    const e = d.expenses.find(x => x.id === id);
+    withLog(patchIn("expenses", id, { status: approved ? "posted" : "rejected", approvedBy: session.name }), `${approved ? "Approved" : "Rejected"} over-receipt expense ${e ? EXPENSE_CATEGORIES.find(x => x.id === e.category)?.label + " " + inr(e.amount) : ""}`);
   };
-  const rejectExpense = id => {
-    const entry = d.expenses.find(e => e.id === id);
-    withLog(p => ({
-      ...p,
-      expenses: p.expenses.map(e => e.id === id ? {
-        ...e,
-        status: "rejected",
-        approvedBy: session.name
-      } : e)
-    }), `Rejected over-receipt expense ${entry ? EXPENSE_CATEGORIES.find(c => c.id === entry.category)?.label + " " + inr(entry.amount) : ""}`);
+  // RTO closes a head once actual costs are in; any recovery surplus just stays put.
+  const setCategoryDone = (category, done) => {
+    const label = EXPENSE_CATEGORIES.find(x => x.id === category)?.label;
+    withLog(p => ({ ...p, expenseClosed: { ...p.expenseClosed, [category]: done } }),
+      done ? `Marked ${label} as done — spent ${inr(postedSpend(d.expenses, category))} of ${inr(expenseCap(d, category))} collected` : `Reopened ${label} for further entries`);
   };
-  // RTO closes out a head once all actual costs are recorded — recoveries from the
-  // customer are commonly higher than the real cost, and that surplus just stays put.
-  const markExpenseCategoryDone = category => {
-    const cap = expenseCap(d, category);
-    const spent = postedSpend(d.expenses, category);
-    const label = EXPENSE_CATEGORIES.find(c => c.id === category)?.label;
-    withLog(p => ({
-      ...p,
-      expenseClosed: {
-        ...p.expenseClosed,
-        [category]: true
-      }
-    }), `Marked ${label} as done — spent ${inr(spent)} of ${inr(cap)} collected`);
-  };
-  const reopenExpenseCategory = category => {
-    const label = EXPENSE_CATEGORIES.find(c => c.id === category)?.label;
-    withLog(p => ({
-      ...p,
-      expenseClosed: {
-        ...p.expenseClosed,
-        [category]: false
-      }
-    }), `Reopened ${label} for further entries`);
-  };
-  const editClaim = () => setModal({
-    title: "TML claim amounts",
-    fields: [{
-      name: "claimedAmount",
-      label: "Total claimed from Tata Motors (₹)",
-      type: "number",
-      defaultValue: String(d.claim?.claimedAmount ?? ""),
-      autoFocus: true
-    }, {
-      name: "upfrontReceived",
-      label: "Already received upfront, netted at purchase/off-take (₹)",
-      type: "number",
-      defaultValue: String(d.claim?.upfrontReceived ?? "0")
-    }],
-    onSubmit: v => {
-      const claimedAmount = parseFloat(v.claimedAmount) || 0;
-      const upfrontReceived = parseFloat(v.upfrontReceived) || 0;
-      withLog(p => ({
-        ...p,
-        claim: {
-          ...(p.claim || {
-            receipts: [],
-            status: "open"
-          }),
-          claimedAmount,
-          upfrontReceived,
-          status: p.claim?.status || "open"
-        }
-      }), `Set TML claim: claimed ${inr(claimedAmount)}, upfront received ${inr(upfrontReceived)}`);
-    }
-  });
-  const addClaimReceipt = () => setModal({
-    title: "Log TML claim receipt",
-    fields: [{
-      name: "amount",
-      label: "Post-delivery amount received (₹)",
-      type: "number",
-      autoFocus: true
-    }, {
-      name: "reference",
-      label: "Reference (credit note, UTR) — optional"
-    }],
-    onSubmit: v => {
-      const amount = parseFloat(v.amount);
-      if (!amount || isNaN(amount) || amount <= 0) return "Enter a valid amount.";
-      const entry = {
-        id: "R" + Date.now().toString(36),
-        date: new Date().toISOString().slice(0, 10),
-        amount,
-        reference: v.reference || "",
-        enteredBy: session.name
-      };
-      withLog(p => ({
-        ...p,
-        claim: {
-          ...p.claim,
-          receipts: [...(p.claim.receipts || []), entry]
-        }
-      }), `Logged TML claim receipt ${inr(amount)}`);
-    }
-  });
-  const closeClaim = () => withLog(p => ({
-    ...p,
-    claim: {
-      ...p.claim,
-      status: "closed",
-      closedBy: session.name,
-      closedAt: new Date().toISOString()
-    }
-  }), `Closed TML claim (claimed ${inr(d.claim?.claimedAmount)}, received ${inr(calcClaim(d.claim)?.totalReceived)})`);
-  return /*#__PURE__*/React.createElement("div", {
-    className: "space-y-4 pb-24"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between"
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: onBack,
-    className: "flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800"
-  }, /*#__PURE__*/React.createElement(ArrowLeft, {
-    className: "w-4 h-4"
-  }), " All deals"), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2"
-  }, chassis && /*#__PURE__*/React.createElement("span", {
-    className: "text-xs font-mono bg-slate-100 text-slate-600 px-2 py-1 rounded-md"
-  }, "Chassis: ", chassis), /*#__PURE__*/React.createElement(StatusBadge, {
-    status: d.status
-  }))), d.approval.status === "rejected" && d.approval.remarks && /*#__PURE__*/React.createElement("div", {
-    className: "flex items-start gap-2 bg-red-50 border border-red-200 text-red-800 text-sm rounded-md p-3"
-  }, /*#__PURE__*/React.createElement(AlertTriangle, {
-    className: "w-4 h-4 mt-0.5 shrink-0"
-  }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("b", null, "Admin rejected this pricing:"), " ", d.approval.remarks)), d.status === STATUS.PENDING && /*#__PURE__*/React.createElement(Banner, null, "Submitted for approval — Customer, Vehicle, and Pricing are locked until Admin approves or rejects. No edits are possible right now, including by Admin."), d.status === STATUS.DRAFT && isSales && /*#__PURE__*/React.createElement("div", {
-    className: "flex justify-end"
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => setConfirmDelete(true),
-    className: "text-xs font-semibold text-red-700 border border-red-300 px-3 py-1.5 rounded-md hover:bg-red-50"
-  }, "Delete this draft")), (d.amendments || []).some(a => a.status === "pending") && /*#__PURE__*/React.createElement("div", {
-    className: "border border-amber-300 bg-amber-50 rounded-lg p-4 space-y-2"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "font-bold text-slate-800 text-lg",
-    style: {
-      fontFamily: "'Barlow Condensed', sans-serif"
-    }
-  }, "FIELD CHANGE REQUEST AWAITING APPROVAL"), d.amendments.filter(a => a.status === "pending").map(a => /*#__PURE__*/React.createElement("div", {
-    key: a.id,
-    className: "bg-white border border-amber-200 rounded-md p-3"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-slate-500 mb-1"
-  }, "Requested by ", a.requestedBy, " on ", new Date(a.requestedAt).toLocaleString("en-IN")), /*#__PURE__*/React.createElement("ul", {
-    className: "text-sm space-y-0.5 list-disc list-inside"
-  }, a.changes.map((ch, i) => /*#__PURE__*/React.createElement("li", {
-    key: i
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "font-mono text-xs bg-slate-100 px-1 rounded"
-  }, ch.section, ".", ch.field), " ", typeof ch.oldValue === "object" ? "(list)" : String(ch.oldValue) || "—", " → ", /*#__PURE__*/React.createElement("b", null, typeof ch.newValue === "object" ? "(list)" : String(ch.newValue) || "—")))), isAdmin && /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-2 mt-2"
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => approveAmendment(a.id),
-    className: "text-xs font-semibold text-white bg-emerald-700 px-3 py-1.5 rounded-md hover:bg-emerald-800"
-  }, "Approve"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => rejectAmendment(a.id),
-    className: "text-xs font-semibold text-red-700 border border-red-300 px-3 py-1.5 rounded-md hover:bg-red-50"
-  }, "Reject")), !isAdmin && /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-slate-400 mt-1"
-  }, "Waiting on Admin — Customer, Vehicle, and On-road price fields are locked until this is approved or rejected.")))), isSales && postApprovalEditableStage && !hasPendingAmendment && /*#__PURE__*/React.createElement("div", {
-    className: "border border-slate-200 bg-slate-50 rounded-lg p-3 flex items-center justify-between flex-wrap gap-2"
-  }, !editMode ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-    className: "text-sm text-slate-600"
-  }, "Customer, Vehicle, and Pricing are locked now that this deal is approved. Only edit if something was entered wrong — it'll need Admin approval."), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setEditMode(true),
-    className: "text-sm font-semibold text-white bg-blue-700 px-3 py-1.5 rounded-md hover:bg-blue-800"
-  }, "Edit")) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-    className: "text-sm text-blue-800"
-  }, "Editing unlocked. ", coreDirty ? "You've made changes below — discard them or submit for Admin approval." : "Make your changes below, then submit for Admin approval (or discard to leave as-is)."), /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-2"
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: discardEdits,
-    className: "text-sm font-semibold text-slate-600 border border-slate-300 px-3 py-1.5 rounded-md hover:bg-slate-100 bg-white"
-  }, "Discard changes"), /*#__PURE__*/React.createElement("button", {
-    onClick: requestAmendment,
-    disabled: !coreDirty,
-    className: "text-sm font-semibold text-white bg-orange-700 px-3 py-1.5 rounded-md hover:bg-orange-900 disabled:opacity-50"
-  }, "Submit for approval")))), /*#__PURE__*/React.createElement(Section, {
-    title: "Customer",
-    subtitle: "Filled by Sales"
-  }, [["name", "Customer name"], ["soWo", "S/o, W/o, D/o"], ["dob", "DOB / Age"], ["pan", "PAN No."], ["aadhar", "Aadhar No."], ["mobile", "Mobile"], ["address", "Address"], ["po", "P.O."], ["ps", "P.S."], ["district", "District"], ["pin", "PIN"], ["state", "State"]].map(([k, l]) => /*#__PURE__*/React.createElement(Field, {
-    key: k,
-    label: l,
-    value: coreDraft.customer[k],
-    onChange: v => editCore("customer", k, v),
-    onCommit: (o, n) => editCoreCommit("customer", k, o, n),
-    readOnly: !canTouchCoreFields
-  }))), /*#__PURE__*/React.createElement(Section, {
-    title: "Vehicle",
-    subtitle: "Filled by Sales"
-  }, [["model", "Model"], ["colour", "Colour"], ["bodyType", "Body type"], ["chassisNo", "Chassis No."], ["engineNo", "Engine No."], ["fuelType", "Fuel type"], ["dod", "DOD"], ["dse", "DSE"], ["dsm", "DSM"], ["financerName", "Financer name"], ["rto", "RTO"]].map(([k, l]) => /*#__PURE__*/React.createElement(Field, {
-    key: k,
-    label: l,
-    value: coreDraft.vehicle[k],
-    onChange: v => editCore("vehicle", k, v),
-    onCommit: (o, n) => editCoreCommit("vehicle", k, o, n),
-    readOnly: !canTouchCoreFields
-  })), /*#__PURE__*/React.createElement(Field, {
-    label: "Branch",
-    value: d.branch,
-    readOnly: true
-  })), /*#__PURE__*/React.createElement(Section, {
-    title: "On-road price",
-    subtitle: d.status === STATUS.PENDING ? "Locked — awaiting Admin decision" : postApprovalEditableStage ? editMode ? "Editing — submit for Admin approval when done" : "Locked — click Edit above to change" : d.status === STATUS.CLOSED ? "Locked — deal is closed" : "Sales enters",
-    accent: "#B5461C"
-  }, /*#__PURE__*/React.createElement(Field, {
-    label: "Exshowroom price",
-    prefix: "₹",
-    value: coreDraft.pricing.exshowroom,
-    onChange: v => editCore("pricing", "exshowroom", v),
-    onCommit: (o, n) => editCoreCommit("pricing", "exshowroom", o, n),
-    readOnly: !canTouchCoreFields
-  }), /*#__PURE__*/React.createElement(Field, {
-    label: "Less: TML cash discount (claimable)",
-    prefix: "₹",
-    value: coreDraft.pricing.tmlDiscount,
-    onChange: v => editCore("pricing", "tmlDiscount", v),
-    onCommit: (o, n) => editCoreCommit("pricing", "tmlDiscount", o, n),
-    readOnly: !canTouchCoreFields
-  }), /*#__PURE__*/React.createElement(Field, {
-    label: "Less: Dealer discount (not claimable)",
-    prefix: "₹",
-    value: coreDraft.pricing.dealerDiscount,
-    onChange: v => editCore("pricing", "dealerDiscount", v),
-    onCommit: (o, n) => editCoreCommit("pricing", "dealerDiscount", o, n),
-    readOnly: !canTouchCoreFields
-  }), /*#__PURE__*/React.createElement(Field, {
-    label: "Less: VAS NFA discount (claimable)",
-    prefix: "₹",
-    value: coreDraft.pricing.vasNfaDiscount,
-    onChange: v => editCore("pricing", "vasNfaDiscount", v),
-    onCommit: (o, n) => editCoreCommit("pricing", "vasNfaDiscount", o, n),
-    readOnly: !canTouchCoreFields
-  }), /*#__PURE__*/React.createElement(OtherDiscountsEditor, {
-    value: coreDraft.pricing.otherDiscounts,
-    onChange: list => editCore("pricing", "otherDiscounts", list),
-    onCommit: (o, n) => editCoreCommit("pricing", "otherDiscounts", o, n),
-    readOnly: !canTouchCoreFields
-  }), /*#__PURE__*/React.createElement(Field, {
-    label: "Net price of vehicle",
-    prefix: "₹",
-    value: c.netPrice.toFixed(0),
-    readOnly: true
-  }), /*#__PURE__*/React.createElement(Field, {
-    label: "Add: TCS 1%",
-    prefix: "₹",
-    value: coreDraft.pricing.tcs,
-    onChange: v => editCore("pricing", "tcs", v),
-    onCommit: (o, n) => editCoreCommit("pricing", "tcs", o, n),
-    readOnly: !canTouchCoreFields
-  }), /*#__PURE__*/React.createElement(Field, {
-    label: "Add: TR",
-    prefix: "₹",
-    value: coreDraft.pricing.tr,
-    onChange: v => editCore("pricing", "tr", v),
-    onCommit: (o, n) => editCoreCommit("pricing", "tr", o, n),
-    readOnly: !canTouchCoreFields
-  }), /*#__PURE__*/React.createElement(Field, {
-    label: "Add: Insurance",
-    prefix: "₹",
-    value: coreDraft.pricing.insurance,
-    onChange: v => editCore("pricing", "insurance", v),
-    onCommit: (o, n) => editCoreCommit("pricing", "insurance", o, n),
-    readOnly: !canTouchCoreFields
-  }), /*#__PURE__*/React.createElement(Field, {
-    label: "Add: Registration",
-    prefix: "₹",
-    value: coreDraft.pricing.registration,
-    onChange: v => editCore("pricing", "registration", v),
-    onCommit: (o, n) => editCoreCommit("pricing", "registration", o, n),
-    readOnly: !canTouchCoreFields
-  }), /*#__PURE__*/React.createElement(Field, {
-    label: "Add: Permit",
-    prefix: "₹",
-    value: coreDraft.pricing.permit,
-    onChange: v => editCore("pricing", "permit", v),
-    onCommit: (o, n) => editCoreCommit("pricing", "permit", o, n),
-    readOnly: !canTouchCoreFields
-  }), /*#__PURE__*/React.createElement(Field, {
-    label: "Add: Fleetedge/VLTD",
-    prefix: "₹",
-    value: coreDraft.pricing.fleetedgeVltd,
-    onChange: v => editCore("pricing", "fleetedgeVltd", v),
-    onCommit: (o, n) => editCoreCommit("pricing", "fleetedgeVltd", o, n),
-    readOnly: !canTouchCoreFields
-  }), /*#__PURE__*/React.createElement(Field, {
-    label: "Add: VAS (AMC/FMS)",
-    prefix: "₹",
-    value: coreDraft.pricing.vasAmc,
-    onChange: v => editCore("pricing", "vasAmc", v),
-    onCommit: (o, n) => editCoreCommit("pricing", "vasAmc", o, n),
-    readOnly: !canTouchCoreFields
-  }), /*#__PURE__*/React.createElement(Field, {
-    label: "Add: Body fabrication chg",
-    prefix: "₹",
-    value: coreDraft.pricing.bodyFabCharge,
-    onChange: v => editCore("pricing", "bodyFabCharge", v),
-    onCommit: (o, n) => editCoreCommit("pricing", "bodyFabCharge", o, n),
-    readOnly: !canTouchCoreFields
-  }), /*#__PURE__*/React.createElement(Field, {
-    label: "Add: Choice No + HSRP",
-    prefix: "₹",
-    value: coreDraft.pricing.choiceHsrp,
-    onChange: v => editCore("pricing", "choiceHsrp", v),
-    onCommit: (o, n) => editCoreCommit("pricing", "choiceHsrp", o, n),
-    readOnly: !canTouchCoreFields
-  }), /*#__PURE__*/React.createElement(Field, {
-    label: "Add: Transportation",
-    prefix: "₹",
-    value: coreDraft.pricing.transportation,
-    onChange: v => editCore("pricing", "transportation", v),
-    onCommit: (o, n) => editCoreCommit("pricing", "transportation", o, n),
-    readOnly: !canTouchCoreFields
-  }), /*#__PURE__*/React.createElement(Field, {
-    label: "Total on-road price",
-    prefix: "₹",
-    value: c.totalOnRoad.toFixed(0),
-    readOnly: true
-  }), /*#__PURE__*/React.createElement(Field, {
-    label: "Less: Exchange bonus",
-    prefix: "₹",
-    value: coreDraft.pricing.exchangeBonus,
-    onChange: v => editCore("pricing", "exchangeBonus", v),
-    onCommit: (o, n) => editCoreCommit("pricing", "exchangeBonus", o, n),
-    readOnly: !canTouchCoreFields
-  }), /*#__PURE__*/React.createElement(Field, {
-    label: "NET ON-ROAD PRICE",
-    prefix: "₹",
-    value: c.netOnRoad.toFixed(0),
-    readOnly: true
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "col-span-2 md:col-span-3 text-xs text-slate-500 bg-slate-50 border border-slate-100 rounded-md p-2"
-  }, "Total claimable from Tata Motors: ", /*#__PURE__*/React.createElement("b", null, inr(c.claimableDiscount)), " (TML cash discount + VAS/NFA discount + any \"other\" discount marked claimable — Dealer Discount is never claimable).")), /*#__PURE__*/React.createElement("div", {
-    className: "border border-slate-200 rounded-lg bg-white p-4"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between mb-3"
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: "'Barlow Condensed', sans-serif"
-    },
-    className: "font-bold text-slate-800 text-lg tracking-wide"
-  }, "CUSTOMER PAYMENT LOG"), (isSales || isAccounts || isAdmin) && postApprovalEditableStage && /*#__PURE__*/React.createElement("button", {
-    onClick: addPayment,
-    className: "flex items-center gap-1 text-sm font-semibold text-white bg-blue-700 px-3 py-1.5 rounded-md hover:bg-blue-800"
-  }, /*#__PURE__*/React.createElement(Plus, {
-    className: "w-4 h-4"
-  }), " Log payment")), d.paymentLog.length === 0 ? /*#__PURE__*/React.createElement("div", {
-    className: "text-sm text-slate-400 italic"
-  }, "No payments logged yet.") : /*#__PURE__*/React.createElement("table", {
-    className: "w-full text-sm"
-  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
-    className: "text-left text-xs uppercase text-slate-500 border-b border-slate-200"
-  }, /*#__PURE__*/React.createElement("th", {
-    className: "py-1.5"
-  }, "Date of receipt"), /*#__PURE__*/React.createElement("th", null, "Mode"), /*#__PURE__*/React.createElement("th", null, "Reference"), /*#__PURE__*/React.createElement("th", null, "Amount"), /*#__PURE__*/React.createElement("th", null, "Entered by"), /*#__PURE__*/React.createElement("th", null, "Status"), /*#__PURE__*/React.createElement("th", null))), /*#__PURE__*/React.createElement("tbody", null, d.paymentLog.map(e => {
-    const st = paymentStatus(e);
-    return /*#__PURE__*/React.createElement("tr", {
-      key: e.id,
-      className: "border-b border-slate-100"
-    }, /*#__PURE__*/React.createElement("td", {
-      className: "py-1.5"
-    }, e.date), /*#__PURE__*/React.createElement("td", null, e.mode, e.mode === ADMIN_ONLY_PAYMENT_MODE && e.sourceDealId && (() => {
-      const src = deals.find(dl => dl.id === e.sourceDealId);
-      return src ? /*#__PURE__*/React.createElement("div", {
-        className: "text-xs text-slate-400"
-      }, "from ", src.customer.name || src.id) : null;
-    })()), /*#__PURE__*/React.createElement("td", null, e.reference || "—"), /*#__PURE__*/React.createElement("td", {
-      className: "font-semibold"
-    }, inr(e.amount)), /*#__PURE__*/React.createElement("td", null, e.enteredBy), /*#__PURE__*/React.createElement("td", null, st === "verified" && /*#__PURE__*/React.createElement("span", {
-      className: "text-emerald-700 font-semibold flex items-center gap-1"
-    }, /*#__PURE__*/React.createElement(CheckCircle2, {
-      className: "w-3.5 h-3.5"
-    }), " Verified"), st === "pending" && /*#__PURE__*/React.createElement("span", {
-      className: "text-amber-600"
-    }, "Unverified"), st === "rejected" && /*#__PURE__*/React.createElement("span", {
-      className: "text-red-700 font-semibold flex items-center gap-1"
-    }, /*#__PURE__*/React.createElement(XCircle, {
-      className: "w-3.5 h-3.5"
-    }), " Rejected", e.rejectionReason ? `: ${e.rejectionReason}` : "")), /*#__PURE__*/React.createElement("td", null, isAccounts && st === "pending" && /*#__PURE__*/React.createElement("div", {
-      className: "flex gap-2"
-    }, /*#__PURE__*/React.createElement("button", {
-      onClick: () => verifyPayment(e.id),
-      className: "text-xs font-semibold text-blue-700 hover:underline"
-    }, "Verify"), /*#__PURE__*/React.createElement("button", {
-      onClick: () => rejectPayment(e.id),
-      className: "text-xs font-semibold text-red-700 hover:underline"
-    }, "Reject"))));
-  }))), /*#__PURE__*/React.createElement("div", {
-    className: "mt-3 flex flex-wrap gap-4 text-sm"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
-    className: "text-slate-500"
-  }, "Total collected: "), /*#__PURE__*/React.createElement("b", null, inr(c.totalCollected))), c.approvedAdjustments > 0 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
-    className: "text-slate-500"
-  }, "Approved adjustments: "), /*#__PURE__*/React.createElement("b", null, inr(c.approvedAdjustments))), c.pendingAdjustments > 0 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
-    className: "text-amber-600"
-  }, "Pending adjustments: "), /*#__PURE__*/React.createElement("b", {
-    className: "text-amber-600"
-  }, inr(c.pendingAdjustments))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
-    className: "text-slate-500"
-  }, "Net on-road price: "), /*#__PURE__*/React.createElement("b", null, inr(c.netOnRoad))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
-    className: "text-slate-500"
-  }, "Balance: "), /*#__PURE__*/React.createElement("b", {
-    className: c.balance > 0 ? "text-orange-700" : "text-emerald-700"
-  }, inr(c.balance)))), (d.adjustments || []).length > 0 && /*#__PURE__*/React.createElement("div", {
-    className: "mt-3 pt-3 border-t border-slate-100 space-y-1.5"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs uppercase tracking-wide text-slate-500 font-semibold"
-  }, "Receipt adjustments"), d.adjustments.map(a => /*#__PURE__*/React.createElement("div", {
-    key: a.id,
-    className: "flex items-center justify-between text-xs bg-slate-50 border border-slate-100 rounded px-2 py-1.5"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("b", null, inr(a.amount)), " ", /*#__PURE__*/React.createElement("span", {
-    className: "text-slate-400"
-  }, "— ", a.reason || "no reason given", " · ", a.date, " · by ", a.enteredBy)), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "px-1.5 py-0.5 rounded-full font-semibold",
-    style: {
-      background: a.status === "approved" ? "#E4F3EA" : a.status === "rejected" ? "#FDE8E8" : "#FBEAE0",
-      color: a.status === "approved" ? "#1E7A4C" : a.status === "rejected" ? "#B91C1C" : "#B5461C"
-    }
-  }, a.status === "approved" ? "Approved" : a.status === "rejected" ? "Rejected" : "Awaiting Admin approval"), isAdmin && a.status === "pending" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
-    onClick: () => approveAdjustment(a.id),
-    className: "text-emerald-700 font-semibold hover:underline"
-  }, "Approve"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => rejectAdjustment(a.id),
-    className: "text-red-600 font-semibold hover:underline"
-  }, "Reject")))))), (isSales || isAccounts || isAdmin) && postApprovalEditableStage && /*#__PURE__*/React.createElement("button", {
-    onClick: addAdjustment,
-    className: "mt-3 text-xs font-semibold text-blue-700 hover:underline"
-  }, "+ Add receipt adjustment (rounding off, last-minute discount)")), (isRto || isAdmin) && /*#__PURE__*/React.createElement("div", {
-    className: "border border-slate-200 rounded-lg bg-white p-4"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2 mb-3"
-  }, /*#__PURE__*/React.createElement(ShieldCheck, {
-    className: "w-4 h-4 text-violet-600"
-  }), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: "'Barlow Condensed', sans-serif"
-    },
-    className: "font-bold text-slate-800 text-lg tracking-wide"
-  }, "RTO / REGISTRATION EXPENSES")), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-slate-500 mb-3"
-  }, "Referenced by chassis no. ", /*#__PURE__*/React.createElement("b", null, chassis || "—"), ". Capped at what was collected for each head — going over needs Admin approval."), /*#__PURE__*/React.createElement("div", {
-    className: "space-y-3"
-  }, EXPENSE_CATEGORIES.map(cat => {
-    const cap = num(d.pricing[cat.pricingField]);
-    const entries = d.expenses.filter(e => e.category === cat.id);
-    const posted = entries.filter(e => e.status === "posted").reduce((s, e) => s + num(e.amount), 0);
-    const remaining = cap - posted;
-    const closed = !!(d.expenseClosed || {})[cat.id];
-    return /*#__PURE__*/React.createElement("div", {
-      key: cat.id,
-      className: `border rounded-md p-3 ${closed ? "border-emerald-200 bg-emerald-50" : "border-slate-100 bg-slate-50"}`
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center justify-between flex-wrap gap-2"
-    }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-      className: "font-semibold text-sm text-slate-800 flex items-center gap-2"
-    }, cat.label, closed && /*#__PURE__*/React.createElement("span", {
-      className: "text-xs px-1.5 py-0.5 rounded-full font-semibold bg-emerald-100 text-emerald-700 flex items-center gap-1"
-    }, /*#__PURE__*/React.createElement(CheckCircle2, {
-      className: "w-3 h-3"
-    }), " Done")), /*#__PURE__*/React.createElement("div", {
-      className: "text-xs text-slate-500"
-    }, "Collected ", inr(cap), " · Spent ", inr(posted), " · ", /*#__PURE__*/React.createElement("span", {
-      className: remaining < 0 ? "text-orange-700 font-semibold" : ""
-    }, remaining < 0 ? `Over by ${inr(-remaining)}` : `Retained ${inr(remaining)}`))), isRto && d.status !== STATUS.DRAFT && !closed && /*#__PURE__*/React.createElement("div", {
-      className: "flex gap-2"
-    }, /*#__PURE__*/React.createElement("button", {
-      onClick: () => addExpense(cat.id),
-      className: "flex items-center gap-1 text-xs font-semibold text-white bg-violet-600 px-2.5 py-1.5 rounded-md hover:bg-violet-800"
-    }, /*#__PURE__*/React.createElement(Plus, {
-      className: "w-3.5 h-3.5"
-    }), " Add expense"), /*#__PURE__*/React.createElement("button", {
-      onClick: () => markExpenseCategoryDone(cat.id),
-      className: "text-xs font-semibold text-emerald-700 border border-emerald-300 px-2.5 py-1.5 rounded-md hover:bg-emerald-50"
-    }, "Mark as done")), isAdmin && closed && /*#__PURE__*/React.createElement("button", {
-      onClick: () => reopenExpenseCategory(cat.id),
-      className: "text-xs font-semibold text-slate-500 hover:underline"
-    }, "Reopen")), entries.length > 0 && /*#__PURE__*/React.createElement("div", {
-      className: "mt-2 space-y-1"
-    }, entries.map(e => {
-      const m = EXPENSE_STATUS_META[e.status];
-      return /*#__PURE__*/React.createElement("div", {
-        key: e.id,
-        className: "flex items-center justify-between text-xs bg-white border border-slate-100 rounded px-2 py-1.5"
-      }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("b", null, inr(e.amount)), " ", /*#__PURE__*/React.createElement("span", {
-        className: "text-slate-400"
-      }, "by ", e.enteredBy), e.remarks && /*#__PURE__*/React.createElement("span", {
-        className: "text-slate-400"
-      }, " — ", e.remarks)), /*#__PURE__*/React.createElement("div", {
-        className: "flex items-center gap-2"
-      }, /*#__PURE__*/React.createElement("span", {
-        className: "px-1.5 py-0.5 rounded-full font-semibold",
-        style: {
-          background: m.bg,
-          color: m.color
-        }
-      }, m.label), isAdmin && e.status === "pending_approval" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
-        onClick: () => approveExpense(e.id),
-        className: "text-emerald-700 font-semibold hover:underline"
-      }, "Approve"), /*#__PURE__*/React.createElement("button", {
-        onClick: () => rejectExpense(e.id),
-        className: "text-red-600 font-semibold hover:underline"
-      }, "Reject"))));
-    })));
-  }))), (isClaims || isAdmin) && /*#__PURE__*/React.createElement("div", {
-    className: "border border-slate-200 rounded-lg bg-white p-4"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between mb-3"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2"
-  }, /*#__PURE__*/React.createElement(HandCoins, {
-    className: "w-4 h-4 text-amber-700"
-  }), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: "'Barlow Condensed', sans-serif"
-    },
-    className: "font-bold text-slate-800 text-lg tracking-wide"
-  }, "TML CLAIM")), d.claim && /*#__PURE__*/React.createElement("span", {
-    className: "text-xs font-semibold px-2 py-1 rounded-full",
-    style: {
-      background: d.claim.status === "closed" ? "#E4F3EA" : "#E7EEF9",
-      color: d.claim.status === "closed" ? "#1E7A4C" : "#1B4F9C"
-    }
-  }, d.claim.status === "closed" ? "Closed" : "Open")), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-slate-500 mb-3"
-  }, "Discounts passed to customer, claimable back from TML: ", /*#__PURE__*/React.createElement("b", null, inr(c.claimableDiscount)), ". The claim can differ. Chassis no. ", /*#__PURE__*/React.createElement("b", null, chassis || "—"), ".", c.claimableDiscount > 0 && /*#__PURE__*/React.createElement("span", {
-    className: `ml-2 text-xs px-1.5 py-0.5 rounded-full font-semibold ${claimStatus(d) === "settled" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`
-  }, claimStatus(d) === "settled" ? "Settled" : `Pending for claim: ${inr(claimPendingAmount(d))}`)), !d.claim ? isClaims ? /*#__PURE__*/React.createElement("button", {
-    onClick: editClaim,
-    className: "text-sm font-semibold text-white bg-amber-700 px-3 py-1.5 rounded-md hover:bg-amber-900"
-  }, "Start claim") : /*#__PURE__*/React.createElement("div", {
-    className: "text-sm text-slate-400 italic"
-  }, "No claim started yet", isAdmin ? " — only the Claims team can start one" : "", ".") : /*#__PURE__*/React.createElement("div", {
-    className: "space-y-3"
-  }, (() => {
-    const cc = calcClaim(d.claim);
-    return /*#__PURE__*/React.createElement("div", {
-      className: "flex flex-wrap gap-4 text-sm"
-    }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
-      className: "text-slate-500"
-    }, "Claimed: "), /*#__PURE__*/React.createElement("b", null, inr(d.claim.claimedAmount))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
-      className: "text-slate-500"
-    }, "Upfront received: "), /*#__PURE__*/React.createElement("b", null, inr(d.claim.upfrontReceived))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
-      className: "text-slate-500"
-    }, "Post-delivery received: "), /*#__PURE__*/React.createElement("b", null, inr(cc.receiptsTotal))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
-      className: "text-slate-500"
-    }, "Balance: "), /*#__PURE__*/React.createElement("b", {
-      className: cc.balance > 0 ? "text-orange-700" : "text-emerald-700"
-    }, inr(cc.balance))));
-  })(), (d.claim.receipts || []).length > 0 && /*#__PURE__*/React.createElement("table", {
-    className: "w-full text-xs"
-  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
-    className: "text-left uppercase text-slate-500 border-b border-slate-200"
-  }, /*#__PURE__*/React.createElement("th", {
-    className: "py-1"
-  }, "Date"), /*#__PURE__*/React.createElement("th", null, "Reference"), /*#__PURE__*/React.createElement("th", null, "Amount"), /*#__PURE__*/React.createElement("th", null, "Entered by"))), /*#__PURE__*/React.createElement("tbody", null, d.claim.receipts.map(r => /*#__PURE__*/React.createElement("tr", {
-    key: r.id,
-    className: "border-b border-slate-100"
-  }, /*#__PURE__*/React.createElement("td", {
-    className: "py-1"
-  }, r.date), /*#__PURE__*/React.createElement("td", null, r.reference || "—"), /*#__PURE__*/React.createElement("td", {
-    className: "font-semibold"
-  }, inr(r.amount)), /*#__PURE__*/React.createElement("td", null, r.enteredBy))))), d.claim.status === "open" && isClaims && /*#__PURE__*/React.createElement("div", {
-    className: "flex flex-wrap gap-2"
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: editClaim,
-    className: "text-xs font-semibold text-slate-600 border border-slate-300 px-3 py-1.5 rounded-md hover:bg-slate-50"
-  }, "Edit claim amount"), /*#__PURE__*/React.createElement("button", {
-    onClick: addClaimReceipt,
-    className: "text-xs font-semibold text-white bg-blue-700 px-3 py-1.5 rounded-md hover:bg-blue-800"
-  }, "Log post-delivery receipt"), /*#__PURE__*/React.createElement("button", {
-    onClick: closeClaim,
-    className: "text-xs font-semibold text-white bg-emerald-700 px-3 py-1.5 rounded-md hover:bg-emerald-800"
-  }, "Close claim")))), (isAdmin || isAccounts) && /*#__PURE__*/React.createElement(Section, {
-    title: "Office use",
-    subtitle: "Admin / Accounts",
-    defaultOpen: false,
-    accent: "#6B7280"
-  }, [["remarks", "Remarks"], ["bodyFabName", "Body fab. name"], ["interestCost", "Interest cost"], ["retentionVehicle", "Retention on vehicle"], ["retentionBody", "Retention on body"], ["retentionVas", "Retention on VAS"], ["retentionOthers", "Retention on others"]].map(([k, l]) => /*#__PURE__*/React.createElement(Field, {
-    key: k,
-    label: l,
-    prefix: k !== "remarks" && k !== "bodyFabName" ? "₹" : undefined,
-    value: d.officeUse[k],
-    onChange: v => set("officeUse", k, v),
-    onCommit: (o, n) => commitFieldChange("officeUse", k, o, n),
-    readOnly: d.status === STATUS.CLOSED
-  }))), /*#__PURE__*/React.createElement("div", {
-    className: "fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-3 flex items-center justify-between gap-2 shadow-lg"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "text-xs text-slate-400 self-center"
-  }, "Changes save automatically."), /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-2"
-  }, isSales && (d.status === STATUS.DRAFT || d.status === STATUS.REJECTED) && /*#__PURE__*/React.createElement("button", {
-    onClick: () => {
-      submitForApproval();
-    },
-    className: "text-sm font-semibold text-white bg-orange-700 px-4 py-2 rounded-md hover:bg-orange-900"
-  }, "Submit for approval"), isAdmin && d.status === STATUS.PENDING && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
-    onClick: reject,
-    className: "text-sm font-semibold text-red-700 border border-red-300 px-4 py-2 rounded-md hover:bg-red-50"
-  }, "Reject"), /*#__PURE__*/React.createElement("button", {
-    onClick: approve,
-    className: "text-sm font-semibold text-white bg-emerald-700 px-4 py-2 rounded-md hover:bg-emerald-800"
-  }, "Approve pricing")), isAdmin && d.status === STATUS.APPROVED && /*#__PURE__*/React.createElement("button", {
-    onClick: markDelivered,
-    className: "text-sm font-semibold text-white bg-violet-600 px-4 py-2 rounded-md hover:bg-violet-800"
-  }, "Mark delivered"), isAdmin && (d.status === STATUS.APPROVED || d.status === STATUS.DELIVERED) && /*#__PURE__*/React.createElement("button", {
-    onClick: closeDeal,
-    disabled: c.balance > 0,
-    title: c.balance > 0 ? "Balance must be cleared before closing" : "",
-    className: "text-sm font-semibold text-white bg-emerald-700 px-4 py-2 rounded-md hover:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed"
-  }, "Close deal"), !isAdmin && (d.status === STATUS.APPROVED || d.status === STATUS.DELIVERED) && c.balance <= 0 && /*#__PURE__*/React.createElement("span", {
-    className: "text-xs text-slate-400 self-center"
-  }, "Balance cleared — waiting on Admin to close."), !isAdmin && (d.status === STATUS.APPROVED || d.status === STATUS.DELIVERED) && c.balance > 0 && d.status === STATUS.DELIVERED && /*#__PURE__*/React.createElement("span", {
-    className: "text-xs text-slate-400 self-center"
-  }, "Delivered — balance still pending (e.g. financer payment)."))), modal && /*#__PURE__*/React.createElement(ModalForm, {
-    title: modal.title,
-    fields: modal.fields,
-    onSubmit: modal.onSubmit,
-    onClose: () => setModal(null)
-  }), confirmDelete && /*#__PURE__*/React.createElement(ModalForm, {
-    title: "Delete this draft?",
-    message: `This permanently removes deal ${d.id}${chassis ? ` (chassis ${chassis})` : ""}. This can't be undone.`,
-    fields: [],
-    onSubmit: () => {
-      onDelete();
-    },
-    onClose: () => setConfirmDelete(false)
-  }));
+
+  const priceSub = d.status === STATUS.PENDING ? "Locked — awaiting Admin decision" : postApproval ? (editMode ? "Editing — submit for Admin approval when done" : "Locked — click Edit above to change") : d.status === STATUS.CLOSED ? "Locked — deal is closed" : "Sales enters";
+  const canLogPayment = (isSales || isAccounts || isAdmin) && postApproval;
+  const pendingAmendments = (d.amendments || []).filter(a => a.status === "pending");
+  const balanceDue = c.balance > 0;
+
+  return (
+    <div className="stack" style={{ paddingBottom: 90 }}>
+      <div className="flex between wrapf">
+        <button className="lnk mu flex" onClick={onBack}><ArrowLeft size={15} /> All deals</button>
+        <div className="flex">
+          {chassis && <span className="tag mono" style={{ padding: "4px 9px" }}>Chassis: {chassis}</span>}
+          <StatusBadge status={d.status} />
+        </div>
+      </div>
+
+      <div className="stats">
+        <div className="stat"><span className="lbl">Net on-road</span><b>{inr(c.netOnRoad)}</b></div>
+        <div className="stat"><span className="lbl">Collected</span><b>{inr(c.totalCollected)}</b></div>
+        <div className="stat" style={{ borderColor: balanceDue ? "#E3B79F" : "#BFDCC7" }}><span className="lbl">Balance</span><b className={balanceDue ? "warn" : "ok"}>{inr(c.balance)}</b></div>
+      </div>
+
+      {d.approval.status === "rejected" && d.approval.remarks && <Banner kind="bad"><b>Admin rejected this pricing:</b> {d.approval.remarks}</Banner>}
+      {d.status === STATUS.PENDING && <Banner>Submitted for approval — Customer, Vehicle, and Pricing are locked until Admin approves or rejects. No edits are possible right now, including by Admin.</Banner>}
+      {d.status === STATUS.DRAFT && isSales && <div className="flex" style={{ justifyContent: "flex-end" }}><button className="btn no xs" onClick={() => setConfirmDelete(true)}>Delete this draft</button></div>}
+
+      {pendingAmendments.length > 0 && (
+        <div className="card stack-s" style={{ background: "#FBF0D6", borderColor: "#EBD39A" }}>
+          <div className="h">Field change request awaiting approval</div>
+          {pendingAmendments.map(a => (
+            <div key={a.id} className="xp">
+              <div className="sm mute" style={{ marginBottom: 4 }}>Requested by {a.requestedBy} on {new Date(a.requestedAt).toLocaleString("en-IN")}</div>
+              <ul style={{ margin: 0, paddingLeft: 18 }}>
+                {a.changes.map((ch, i) => (
+                  <li key={i}><span className="tag mono">{ch.section}.{ch.field}</span> {typeof ch.oldValue === "object" ? "(list)" : String(ch.oldValue) || "—"} → <b>{typeof ch.newValue === "object" ? "(list)" : String(ch.newValue) || "—"}</b></li>
+                ))}
+              </ul>
+              {isAdmin ? (
+                <div className="flex" style={{ marginTop: 8 }}>
+                  <button className="btn go xs" onClick={() => reviewAmendment(a.id, true)}>Approve</button>
+                  <button className="btn no xs" onClick={() => reviewAmendment(a.id, false)}>Reject</button>
+                </div>
+              ) : <div className="sm mute" style={{ marginTop: 6 }}>Waiting on Admin — Customer, Vehicle, and On-road price fields are locked until this is approved or rejected.</div>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {isSales && postApproval && !hasPendingAmendment && (
+        <div className="card flex between wrapf" style={{ padding: 12 }}>
+          {!editMode ? (
+            <>
+              <div className="sm" style={{ maxWidth: 560 }}>Customer, Vehicle, and Pricing are locked now that this deal is approved. Only edit if something was entered wrong — it'll need Admin approval.</div>
+              <button className="btn pri" onClick={() => setEditMode(true)}>Edit</button>
+            </>
+          ) : (
+            <>
+              <div className="sm" style={{ maxWidth: 560 }}>Editing unlocked. {coreDirty ? "You've made changes below — discard them or submit for Admin approval." : "Make your changes below, then submit for Admin approval (or discard to leave as-is)."}</div>
+              <div className="flex">
+                <button className="btn" onClick={discardEdits}>Discard changes</button>
+                <button className="btn acc" onClick={requestAmendment} disabled={!coreDirty}>Submit for approval</button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Mandatory branch selection */}
+      <div className="card stack-s" style={{ borderColor: "#E3B79F" }}>
+        <div className="flex between wrapf">
+          <div>
+            <div className="flex"><span className="tag br">Step 1 · Mandatory</span><span className="h">Dealership branch</span></div>
+            <div className="sm mute" style={{ marginTop: 2 }}>Branch options mandatory to select by the sales man in Sasaram, Bihiya, Buxas, Mohaniya.</div>
+          </div>
+          <span className="sm">Selected: <b style={{ color: "var(--acc)" }}>{normalizeBranch(d.branch) || "None"}</b></span>
+        </div>
+        {canTouch ? (
+          <div className="seg">
+            {BRANCHES.map(b => {
+              const on = normalizeBranch(d.branch) === b;
+              return (
+                <button key={b} type="button" className={on ? "on" : ""} onClick={() => { if (!on) withLog(prev => ({ ...prev, branch: b }), `Updated branch to "${b}"`); }}>
+                  <span>{b}</span>{on ? <CheckCircle2 size={16} color="#D2481B" /> : <span className="ring" />}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="sub flex"><span className="lbl">Branch:</span><b>{normalizeBranch(d.branch)}</b><span className="sm mute" style={{ marginLeft: "auto" }}>Locked after approval</span></div>
+        )}
+      </div>
+
+      <Section title="Customer & Company Details" subtitle="Filled by Sales" accent="#3B82C4">
+        {CUSTOMER_FIELDS.map(([k, l]) => <Field key={k} label={l} value={coreDraft.customer[k]} onChange={v => editCore("customer", k, v)} onCommit={(o, n) => editCoreCommit("customer", k, o, n)} readOnly={!canTouch} />)}
+      </Section>
+
+      <Section title="Vehicle" subtitle="Filled by Sales" accent="#3E9B63">
+        {VEHICLE_FIELDS.map(([k, l]) => <Field key={k} label={l} value={coreDraft.vehicle[k]} onChange={v => editCore("vehicle", k, v)} onCommit={(o, n) => editCoreCommit("vehicle", k, o, n)} readOnly={!canTouch} />)}
+      </Section>
+
+      <Section title="On-road price" subtitle={priceSub} accent="#D2481B">
+        {PRICE_ROWS.map(([k, l]) =>
+          k === "@otherDiscounts" ? (
+            <OtherDiscountsEditor key={k} value={coreDraft.pricing.otherDiscounts} onChange={list => editCore("pricing", "otherDiscounts", list)} onCommit={(o, n) => editCoreCommit("pricing", "otherDiscounts", o, n)} readOnly={!canTouch} />
+          ) : k[0] === "=" ? (
+            <Field key={k} label={l} prefix="₹" value={c[k.slice(1)].toFixed(0)} readOnly />
+          ) : (
+            <Field key={k} label={l} prefix="₹" value={coreDraft.pricing[k]} onChange={v => editCore("pricing", k, v)} onCommit={(o, n) => editCoreCommit("pricing", k, o, n)} readOnly={!canTouch} />
+          ))}
+      </Section>
+
+      <Card title="Customer payment log" right={canLogPayment && <button className="btn pri xs" onClick={addPayment}><Plus size={14} /> Log payment</button>}>
+        {d.paymentLog.length === 0 ? <Empty>No payments logged yet.</Empty> : (
+          <div className="tblwrap">
+            <table className="tbl">
+              <thead><tr>{["Date of receipt", "Mode", "Reference", "Amount", "Entered by", "Status", ""].map(h => <th key={h}>{h}</th>)}</tr></thead>
+              <tbody>
+                {d.paymentLog.map(e => {
+                  const st = paymentStatus(e);
+                  const src = e.mode === ADMIN_ONLY_PAYMENT_MODE && e.sourceDealId && deals.find(dl => dl.id === e.sourceDealId);
+                  return (
+                    <tr key={e.id}>
+                      <td className="mono">{e.date}</td>
+                      <td>{e.mode}{src && <div className="sm mute">from {formatParty(src.customer) || src.id}</div>}</td>
+                      <td className="mono">{e.reference || "—"}</td>
+                      <td className="mono"><b>{inr(e.amount)}</b></td>
+                      <td>{e.enteredBy}</td>
+                      <td>
+                        {st === "verified" && <span className="ok flex" style={{ fontWeight: 700 }}><CheckCircle2 size={14} /> Verified</span>}
+                        {st === "pending" && <span className="warn">Unverified</span>}
+                        {st === "rejected" && <span className="bad flex" style={{ fontWeight: 700 }}><XCircle size={14} /> Rejected{e.rejectionReason ? `: ${e.rejectionReason}` : ""}</span>}
+                      </td>
+                      <td>{isAccounts && st === "pending" && <div className="flex"><button className="lnk ok" onClick={() => verifyPayment(e.id)}>Verify</button><button className="lnk bad" onClick={() => rejectPayment(e.id)}>Reject</button></div>}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div className="flex wrapf sm" style={{ gap: 18, marginTop: 12 }}>
+          <span><span className="mute">Total collected: </span><b>{inr(c.totalCollected)}</b></span>
+          {c.approvedAdjustments > 0 && <span><span className="mute">Approved adjustments: </span><b>{inr(c.approvedAdjustments)}</b></span>}
+          {c.pendingAdjustments > 0 && <span className="warn">Pending adjustments: <b>{inr(c.pendingAdjustments)}</b></span>}
+          <span><span className="mute">Net on-road price: </span><b>{inr(c.netOnRoad)}</b></span>
+          <span><span className="mute">Balance: </span><b className={balanceDue ? "warn" : "ok"}>{inr(c.balance)}</b></span>
+        </div>
+        {(d.adjustments || []).length > 0 && (
+          <div className="stack-s" style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--line)" }}>
+            <div className="lbl">Receipt adjustments</div>
+            {d.adjustments.map(a => {
+              const [label, color, bg] = ADJ_META[a.status] || ADJ_META.pending;
+              return (
+                <div key={a.id} className="ent">
+                  <div><b>{inr(a.amount)}</b> <span className="mute">— {a.reason || "no reason given"} · {a.date} · by {a.enteredBy}</span></div>
+                  <div className="flex">
+                    <Chip color={color} bg={bg}>{label}</Chip>
+                    {isAdmin && a.status === "pending" && <><button className="lnk ok" onClick={() => reviewAdjustment(a.id, true)}>Approve</button><button className="lnk bad" onClick={() => reviewAdjustment(a.id, false)}>Reject</button></>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {canLogPayment && <button className="lnk" style={{ marginTop: 12 }} onClick={addAdjustment}>+ Add receipt adjustment (rounding off, last-minute discount)</button>}
+      </Card>
+
+      {(isRto || isAdmin) && (
+        <Card title="RTO / Registration expenses" icon={ShieldCheck}>
+          <div className="sm mute" style={{ marginBottom: 12 }}>Referenced by chassis no. <b>{chassis || "—"}</b>. Capped at what was collected for each head — going over needs Admin approval.</div>
+          <div className="stack-s">
+            {EXPENSE_CATEGORIES.map(cat => {
+              const cap = num(d.pricing[cat.pricingField]);
+              const entries = d.expenses.filter(e => e.category === cat.id);
+              const posted = sum(entries.filter(e => e.status === "posted"), e => e.amount);
+              const remaining = cap - posted;
+              const closed = !!(d.expenseClosed || {})[cat.id];
+              return (
+                <div key={cat.id} className={`xp ${closed ? "done" : ""}`}>
+                  <div className="flex between wrapf">
+                    <div>
+                      <div className="flex" style={{ fontWeight: 700 }}>{cat.label}{closed && <Chip color="#25683A" bg="#D9EDDD" icon={CheckCircle2}>Done</Chip>}</div>
+                      <div className="sm mute">Collected {inr(cap)} · Spent {inr(posted)} · <span className={remaining < 0 ? "warn" : ""} style={remaining < 0 ? { fontWeight: 700 } : {}}>{remaining < 0 ? `Over by ${inr(-remaining)}` : `Retained ${inr(remaining)}`}</span></div>
+                    </div>
+                    {isRto && d.status !== STATUS.DRAFT && !closed && (
+                      <div className="flex">
+                        <button className="btn pri xs" onClick={() => addExpense(cat.id)}><Plus size={13} /> Add expense</button>
+                        <button className="btn xs" onClick={() => setCategoryDone(cat.id, true)}>Mark as done</button>
+                      </div>
+                    )}
+                    {isAdmin && closed && <button className="lnk mu" onClick={() => setCategoryDone(cat.id, false)}>Reopen</button>}
+                  </div>
+                  {entries.length > 0 && (
+                    <div className="stack-s" style={{ marginTop: 8 }}>
+                      {entries.map(e => (
+                        <div key={e.id} className="ent">
+                          <div><b>{inr(e.amount)}</b> <span className="mute">by {e.enteredBy}{e.remarks && ` — ${e.remarks}`}</span></div>
+                          <div className="flex">
+                            <Chip {...EXPENSE_STATUS_META[e.status]}>{EXPENSE_STATUS_META[e.status].label}</Chip>
+                            {isAdmin && e.status === "pending_approval" && <><button className="lnk ok" onClick={() => reviewExpense(e.id, true)}>Approve</button><button className="lnk bad" onClick={() => reviewExpense(e.id, false)}>Reject</button></>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+
+      {(isAdmin || isAccounts) && (
+        <Section title="Office use" subtitle="Admin / Accounts" defaultOpen={false} accent="#7A7468">
+          {OFFICE_FIELDS.map(([k, l]) => (
+            <Field key={k} label={l} prefix={k !== "remarks" && k !== "bodyFabName" ? "₹" : undefined} value={d.officeUse[k]} onChange={v => set("officeUse", k, v)} onCommit={(o, n) => commitFieldChange("officeUse", k, o, n)} readOnly={d.status === STATUS.CLOSED} />
+          ))}
+        </Section>
+      )}
+
+      <div className="dock">
+        <span className="sm mute">Changes save automatically.</span>
+        <div className="flex">
+          {isSales && preApproval && <button className="btn acc" onClick={submitForApproval}>Submit for approval</button>}
+          {isAdmin && d.status === STATUS.PENDING && <><button className="btn no" onClick={reject}>Reject</button><button className="btn go" onClick={approve}>Approve pricing</button></>}
+          {isAdmin && d.status === STATUS.APPROVED && <button className="btn pri" onClick={markDelivered}>Mark delivered</button>}
+          {isAdmin && postApproval && <button className="btn go" onClick={closeDeal} disabled={balanceDue} title={balanceDue ? "Balance must be cleared before closing" : ""}>Close deal</button>}
+          {!isAdmin && postApproval && !balanceDue && <span className="sm mute">Balance cleared — waiting on Admin to close.</span>}
+          {!isAdmin && d.status === STATUS.DELIVERED && balanceDue && <span className="sm mute">Delivered — balance still pending (e.g. financer payment).</span>}
+        </div>
+      </div>
+
+      {modal && <ModalForm {...modal} onClose={() => setModal(null)} />}
+      {confirmDelete && (
+        <ModalForm title="Delete this draft?" message={`This permanently removes deal ${d.id}${chassis ? ` (chassis ${chassis})` : ""}. This can't be undone.`} fields={[]} onSubmit={() => { onDelete(); }} onClose={() => setConfirmDelete(false)} />
+      )}
+    </div>
+  );
 }
 
-/* ---------------------------------------------------------------------- */
+/* ====================================================================== */
 /*  Deals list                                                             */
-/* ---------------------------------------------------------------------- */
+/* ====================================================================== */
 
-function DealsList({
-  deals,
-  session,
-  onOpen,
-  onNew
-}) {
+function DealsList({ deals, session, onOpen, onNew }) {
   const [statusFilter, setStatusFilter] = useState("all");
   const [branchFilter, setBranchFilter] = useState("all");
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
-  const filtered = deals.filter(d => {
-    if (statusFilter !== "all" && d.status !== statusFilter) return false;
-    if (branchFilter !== "all" && d.branch !== branchFilter) return false;
-    if (!q) return true;
-    return [d.id, d.vehicle.chassisNo, d.customer.name, d.vehicle.model].filter(Boolean).some(v => v.toLowerCase().includes(q));
-  });
-  return /*#__PURE__*/React.createElement("div", {
-    className: "space-y-3"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "relative"
-  }, /*#__PURE__*/React.createElement(Search, {
-    className: "w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"
-  }), /*#__PURE__*/React.createElement("input", {
-    value: query,
-    onChange: e => setQuery(e.target.value),
-    placeholder: "Search by chassis number, customer, model, or deal ID…",
-    className: "w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-blue-700/40 focus:border-blue-700"
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "flex flex-wrap items-center gap-2 justify-between"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2 flex-wrap"
-  }, /*#__PURE__*/React.createElement(Filter, {
-    className: "w-4 h-4 text-slate-400"
-  }), /*#__PURE__*/React.createElement("select", {
-    value: statusFilter,
-    onChange: e => setStatusFilter(e.target.value),
-    className: "text-sm border border-slate-300 rounded-md px-2 py-1.5"
-  }, /*#__PURE__*/React.createElement("option", {
-    value: "all"
-  }, "All statuses"), Object.entries(STATUS_META).map(([k, v]) => /*#__PURE__*/React.createElement("option", {
-    key: k,
-    value: k
-  }, v.label))), /*#__PURE__*/React.createElement("select", {
-    value: branchFilter,
-    onChange: e => setBranchFilter(e.target.value),
-    className: "text-sm border border-slate-300 rounded-md px-2 py-1.5"
-  }, /*#__PURE__*/React.createElement("option", {
-    value: "all"
-  }, "All branches"), BRANCHES.map(b => /*#__PURE__*/React.createElement("option", {
-    key: b
-  }, b)))), session.role === "sales" && /*#__PURE__*/React.createElement("button", {
-    onClick: onNew,
-    className: "flex items-center gap-1 text-sm font-semibold text-white bg-blue-700 px-3 py-2 rounded-md hover:bg-blue-800"
-  }, /*#__PURE__*/React.createElement(Plus, {
-    className: "w-4 h-4"
-  }), " New deal")), filtered.length === 0 ? /*#__PURE__*/React.createElement("div", {
-    className: "text-center py-16 text-slate-400 text-sm"
-  }, "No deals match these filters yet.") : /*#__PURE__*/React.createElement("div", {
-    className: "space-y-2"
-  }, filtered.slice().reverse().map(d => {
-    const c = calc(d);
-    const cs = claimStatus(d);
-    return /*#__PURE__*/React.createElement("button", {
-      key: d.id,
-      onClick: () => onOpen(d.id),
-      className: "w-full text-left bg-white border border-slate-200 rounded-lg p-3 hover:border-blue-700/50 hover:shadow-sm transition-all flex items-center justify-between gap-3"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "min-w-0"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center gap-2 flex-wrap"
-    }, /*#__PURE__*/React.createElement("span", {
-      className: "font-bold text-slate-800 truncate"
-    }, d.customer.name || "Untitled customer"), /*#__PURE__*/React.createElement("span", {
-      className: "text-xs text-slate-400"
-    }, d.vehicle.model || "No model set"), cs !== "none" && /*#__PURE__*/React.createElement("span", {
-      className: `text-xs px-1.5 py-0.5 rounded-full font-semibold ${cs === "settled" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`
-    }, cs === "settled" ? "Claim settled" : "Claim pending")), /*#__PURE__*/React.createElement("div", {
-      className: "text-xs text-slate-500"
-    }, d.branch, " · ", d.id, d.vehicle.chassisNo && /*#__PURE__*/React.createElement(React.Fragment, null, " · Chassis ", /*#__PURE__*/React.createElement("span", {
-      className: "font-mono"
-    }, d.vehicle.chassisNo)), " · Net ", inr(c.netOnRoad), " · Balance ", inr(c.balance))), /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center gap-2 shrink-0"
-    }, /*#__PURE__*/React.createElement(StatusBadge, {
-      status: d.status
-    }), /*#__PURE__*/React.createElement(ChevronRight, {
-      className: "w-4 h-4 text-slate-300"
-    })));
-  })));
+  const filtered = deals.filter(d =>
+    (statusFilter === "all" || d.status === statusFilter) &&
+    (branchFilter === "all" || matchBranch(d.branch, branchFilter)) &&
+    (!q || [d.id, d.vehicle?.chassisNo, d.customer?.name, d.customer?.companyName, d.customer?.gstNo, d.vehicle?.model, d.branch].filter(Boolean).some(v => v.toLowerCase().includes(q))));
+  return (
+    <div className="stack">
+      <div className="search">
+        <Search size={16} />
+        <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search by customer, company, GST, chassis, model, branch, or deal ID…" />
+      </div>
+      <div className="flex between wrapf">
+        <div className="flex wrapf">
+          <Filter size={16} color="#7A7468" />
+          <select className="sel" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+            <option value="all">All statuses</option>
+            {Object.entries(STATUS_META).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+          </select>
+          <select className="sel" value={branchFilter} onChange={e => setBranchFilter(e.target.value)}>
+            <option value="all">All branches</option>
+            {BRANCHES.map(b => <option key={b} value={b}>{b}</option>)}
+          </select>
+        </div>
+        {onNew && (session.role === "sales" || session.role === "admin") && <button className="btn acc" onClick={onNew}><Plus size={15} /> New deal</button>}
+      </div>
+      {filtered.length === 0 ? <div className="center">No deals match these filters yet.</div> : (
+        <div className="stack-s">
+          {filtered.slice().reverse().map(d => {
+            const c = calc(d);
+            return (
+              <button key={d.id} className="row" style={{ "--c": STATUS_META[d.status]?.color }} onClick={() => onOpen(d.id)}>
+                <div className="min">
+                  <div className="rt">
+                    <b>{formatParty(d.customer)}</b>
+                    {d.customer?.gstNo && <span className="tag mono">GST: {d.customer.gstNo}</span>}
+                    <span className="sm mute">{d.vehicle.model || "No model set"}</span>
+                  </div>
+                  <div className="rs">
+                    <span className="tag br">{normalizeBranch(d.branch)}</span>
+                    <span className="mono">{d.id}</span>
+                    {d.vehicle.chassisNo && <span>· Chassis <span className="mono">{d.vehicle.chassisNo}</span></span>}
+                    <span>· Net {inr(c.netOnRoad)} · Balance {inr(c.balance)}</span>
+                  </div>
+                </div>
+                <div className="flex"><StatusBadge status={d.status} /><ChevronRight size={16} color="#B8B1A2" /></div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
-/* ---------------------------------------------------------------------- */
-/*  Approvals (Admin only)                                                 */
-/* ---------------------------------------------------------------------- */
+/* ====================================================================== */
+/*  Approvals (Admin) · Payments to verify (Accounts) · Audit trail        */
+/* ====================================================================== */
 
-function Approvals({
-  deals,
-  onOpen
-}) {
-  const pendingPricing = deals.filter(d => d.status === STATUS.PENDING);
-  const pendingExpenses = [];
-  deals.forEach(d => (d.expenses || []).forEach(e => {
-    if (e.status === "pending_approval") pendingExpenses.push({
-      ...e,
-      dealId: d.id,
-      customer: d.customer.name,
-      branch: d.branch,
-      chassis: d.vehicle.chassisNo
-    });
-  }));
-  const pendingAmendments = [];
-  deals.forEach(d => (d.amendments || []).forEach(a => {
-    if (a.status === "pending") pendingAmendments.push({
-      ...a,
-      dealId: d.id,
-      customer: d.customer.name,
-      branch: d.branch,
-      chassis: d.vehicle.chassisNo
-    });
-  }));
-  const pendingAdjustments = [];
-  deals.forEach(d => (d.adjustments || []).forEach(a => {
-    if (a.status === "pending") pendingAdjustments.push({
-      ...a,
-      dealId: d.id,
-      customer: d.customer.name,
-      branch: d.branch,
-      chassis: d.vehicle.chassisNo
-    });
-  }));
-  return /*#__PURE__*/React.createElement("div", {
-    className: "space-y-5"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "bg-white border border-slate-200 rounded-lg p-4"
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: "'Barlow Condensed', sans-serif"
-    },
-    className: "font-bold text-slate-800 text-lg tracking-wide mb-3"
-  }, "PRICING AWAITING APPROVAL"), pendingPricing.length === 0 ? /*#__PURE__*/React.createElement("div", {
-    className: "text-sm text-slate-400 italic"
-  }, "Nothing pending.") : /*#__PURE__*/React.createElement("div", {
-    className: "space-y-2"
-  }, pendingPricing.map(d => /*#__PURE__*/React.createElement("button", {
-    key: d.id,
-    onClick: () => onOpen(d.id),
-    className: "w-full text-left border border-slate-100 rounded-md p-2.5 hover:border-blue-700/40 flex items-center justify-between"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "font-semibold text-sm text-slate-800"
-  }, d.customer.name || "Untitled", " ", /*#__PURE__*/React.createElement("span", {
-    className: "text-xs font-normal text-slate-400"
-  }, d.vehicle.model)), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-slate-500"
-  }, d.branch, " · ", d.id, d.vehicle.chassisNo && ` · Chassis ${d.vehicle.chassisNo}`)), /*#__PURE__*/React.createElement(ChevronRight, {
-    className: "w-4 h-4 text-slate-300"
-  }))))), /*#__PURE__*/React.createElement("div", {
-    className: "bg-white border border-slate-200 rounded-lg p-4"
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: "'Barlow Condensed', sans-serif"
-    },
-    className: "font-bold text-slate-800 text-lg tracking-wide mb-3"
-  }, "FIELD CHANGES AWAITING APPROVAL"), pendingAmendments.length === 0 ? /*#__PURE__*/React.createElement("div", {
-    className: "text-sm text-slate-400 italic"
-  }, "Nothing pending.") : /*#__PURE__*/React.createElement("div", {
-    className: "space-y-2"
-  }, pendingAmendments.map(a => /*#__PURE__*/React.createElement("button", {
-    key: a.id,
-    onClick: () => onOpen(a.dealId),
-    className: "w-full text-left border border-slate-100 rounded-md p-2.5 hover:border-blue-700/40 flex items-center justify-between"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "font-semibold text-sm text-slate-800"
-  }, a.changes.length, " field change(s) — ", a.customer || "Untitled"), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-slate-500"
-  }, a.branch, " · ", a.dealId, a.chassis && ` · Chassis ${a.chassis}`, " · requested by ", a.requestedBy)), /*#__PURE__*/React.createElement(ChevronRight, {
-    className: "w-4 h-4 text-slate-300"
-  }))))), /*#__PURE__*/React.createElement("div", {
-    className: "bg-white border border-slate-200 rounded-lg p-4"
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: "'Barlow Condensed', sans-serif"
-    },
-    className: "font-bold text-slate-800 text-lg tracking-wide mb-3"
-  }, "EXPENSES OVER RECEIPT — AWAITING APPROVAL"), pendingExpenses.length === 0 ? /*#__PURE__*/React.createElement("div", {
-    className: "text-sm text-slate-400 italic"
-  }, "Nothing pending.") : /*#__PURE__*/React.createElement("div", {
-    className: "space-y-2"
-  }, pendingExpenses.map(e => /*#__PURE__*/React.createElement("button", {
-    key: e.id,
-    onClick: () => onOpen(e.dealId),
-    className: "w-full text-left border border-slate-100 rounded-md p-2.5 hover:border-blue-700/40 flex items-center justify-between"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "font-semibold text-sm text-slate-800"
-  }, EXPENSE_CATEGORIES.find(c => c.id === e.category)?.label, " — ", inr(e.amount)), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-slate-500"
-  }, e.customer, " · ", e.branch, e.chassis && ` · Chassis ${e.chassis}`, " · by ", e.enteredBy)), /*#__PURE__*/React.createElement(ChevronRight, {
-    className: "w-4 h-4 text-slate-300"
-  }))))), /*#__PURE__*/React.createElement("div", {
-    className: "bg-white border border-slate-200 rounded-lg p-4"
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: "'Barlow Condensed', sans-serif"
-    },
-    className: "font-bold text-slate-800 text-lg tracking-wide mb-3"
-  }, "RECEIPT ADJUSTMENTS AWAITING APPROVAL"), pendingAdjustments.length === 0 ? /*#__PURE__*/React.createElement("div", {
-    className: "text-sm text-slate-400 italic"
-  }, "Nothing pending.") : /*#__PURE__*/React.createElement("div", {
-    className: "space-y-2"
-  }, pendingAdjustments.map(a => /*#__PURE__*/React.createElement("button", {
-    key: a.id,
-    onClick: () => onOpen(a.dealId),
-    className: "w-full text-left border border-slate-100 rounded-md p-2.5 hover:border-blue-700/40 flex items-center justify-between"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "font-semibold text-sm text-slate-800"
-  }, inr(a.amount), " — ", a.customer || "Untitled"), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-slate-500"
-  }, a.branch, " · ", a.dealId, a.chassis && ` · Chassis ${a.chassis}`, " · ", a.reason || "no reason given", " · by ", a.enteredBy)), /*#__PURE__*/React.createElement(ChevronRight, {
-    className: "w-4 h-4 text-slate-300"
-  }))))));
+function Queue({ title, items, onOpen }) {
+  return (
+    <div className="card">
+      <div className="h" style={{ marginBottom: 10 }}>{title}</div>
+      {items.length === 0 ? <Empty>Nothing pending.</Empty> : (
+        <div className="stack-s">
+          {items.map(i => (
+            <button key={i.key} className="qrow" onClick={() => onOpen(i.dealId)}>
+              <div><div style={{ fontWeight: 600 }}>{i.title}</div><div className="sm mute">{i.sub}</div></div>
+              <ChevronRight size={16} color="#B8B1A2" />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
-/* ---------------------------------------------------------------------- */
-/*  Payments to verify (Accounts action-items tab)                        */
-/* ---------------------------------------------------------------------- */
-
-function PaymentsToVerify({
-  deals,
-  onVerify,
-  onReject,
-  onOpen
-}) {
-  const [rejectModal, setRejectModal] = useState(null); // { dealId, paymentId, entry }
-  const pending = [];
-  deals.forEach(d => (d.paymentLog || []).forEach(e => {
-    if (paymentStatus(e) === "pending") pending.push({
-      ...e,
-      dealId: d.id,
-      customer: d.customer.name,
-      chassis: d.vehicle.chassisNo,
-      branch: d.branch
-    });
-  }));
-  pending.sort((a, b) => new Date(a.date) - new Date(b.date));
-  return /*#__PURE__*/React.createElement("div", {
-    className: "space-y-3"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "bg-white border border-slate-200 rounded-lg p-4"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "font-bold text-slate-800 text-lg mb-3",
-    style: {
-      fontFamily: "'Barlow Condensed', sans-serif"
-    }
-  }, "PAYMENTS AWAITING VERIFICATION"), pending.length === 0 ? /*#__PURE__*/React.createElement("div", {
-    className: "text-sm text-slate-400 italic py-8 text-center"
-  }, "Nothing pending.") : /*#__PURE__*/React.createElement("div", {
-    className: "space-y-2"
-  }, pending.map(e => /*#__PURE__*/React.createElement("div", {
-    key: e.id,
-    className: "border border-slate-100 rounded-md p-2.5"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between flex-wrap gap-2"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "font-semibold text-sm text-slate-800"
-  }, inr(e.amount), " via ", e.mode, " — ", e.customer || "Untitled customer"), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-slate-500"
-  }, e.branch, e.chassis && ` · Chassis ${e.chassis}`, " · received ", e.date, " · entered by ", e.enteredBy, e.reference ? ` · Ref ${e.reference}` : "")), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2"
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => onOpen(e.dealId),
-    className: "text-xs font-semibold text-slate-500 hover:underline"
-  }, "View deal"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => onVerify(e.dealId, e.id),
-    className: "text-xs font-semibold text-white bg-emerald-700 px-2.5 py-1 rounded-md hover:bg-emerald-800"
-  }, "Verify"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setRejectModal({
-      dealId: e.dealId,
-      paymentId: e.id,
-      entry: e
-    }),
-    className: "text-xs font-semibold text-red-700 border border-red-300 px-2.5 py-1 rounded-md hover:bg-red-50"
-  }, "Reject"))))))), rejectModal && /*#__PURE__*/React.createElement(ModalForm, {
-    title: "Reject this payment",
-    message: `${inr(rejectModal.entry.amount)} via ${rejectModal.entry.mode}, received ${rejectModal.entry.date}`,
-    fields: [{
-      name: "reason",
-      label: "Reason (e.g. cheque bounced, amount mismatch)",
-      autoFocus: true
-    }],
-    onSubmit: v => {
-      onReject(rejectModal.dealId, rejectModal.paymentId, v.reason || "");
-    },
-    onClose: () => setRejectModal(null)
-  }));
+function Approvals({ deals, onOpen }) {
+  const queues = [
+    ["Pricing awaiting approval", deals.filter(d => d.status === STATUS.PENDING).map(d => ({
+      key: d.id, dealId: d.id,
+      title: <>{formatParty(d.customer)} <span className="sm mute" style={{ fontWeight: 400 }}>{d.vehicle.model}</span></>,
+      sub: `${normalizeBranch(d.branch)} · ${d.id}${d.vehicle.chassisNo ? ` · Chassis ${d.vehicle.chassisNo}` : ""}`,
+    }))],
+    ["Field changes awaiting approval", flat(deals, "amendments", a => a.status === "pending").map(a => ({
+      key: a.id, dealId: a.dealId, title: `${a.changes.length} field change(s) — ${a.customer || "Untitled"}`, sub: `${dealSub(a)} · requested by ${a.requestedBy}`,
+    }))],
+    ["Expenses over receipt — awaiting approval", flat(deals, "expenses", e => e.status === "pending_approval").map(e => ({
+      key: e.id, dealId: e.dealId, title: `${EXPENSE_CATEGORIES.find(c => c.id === e.category)?.label} — ${inr(e.amount)}`,
+      sub: `${e.customer} · ${e.branch}${e.chassis ? ` · Chassis ${e.chassis}` : ""} · by ${e.enteredBy}`,
+    }))],
+    ["Receipt adjustments awaiting approval", flat(deals, "adjustments", a => a.status === "pending").map(a => ({
+      key: a.id, dealId: a.dealId, title: `${inr(a.amount)} — ${a.customer || "Untitled"}`, sub: `${dealSub(a)} · ${a.reason || "no reason given"} · by ${a.enteredBy}`,
+    }))],
+  ];
+  return <div className="stack">{queues.map(([title, items]) => <Queue key={title} title={title} items={items} onOpen={onOpen} />)}</div>;
 }
 
-/* ---------------------------------------------------------------------- */
-/*  Audit trail (Admin only)                                               */
-/* ---------------------------------------------------------------------- */
+function PaymentsToVerify({ deals, onVerify, onReject, onOpen }) {
+  const [rejectModal, setRejectModal] = useState(null);
+  const pending = flat(deals, "paymentLog", e => paymentStatus(e) === "pending").sort((a, b) => new Date(a.date) - new Date(b.date));
+  return (
+    <div className="stack">
+      <div className="card">
+        <div className="h" style={{ marginBottom: 10 }}>Payments awaiting verification</div>
+        {pending.length === 0 ? <div className="center" style={{ padding: "32px 0", fontStyle: "italic" }}>Nothing pending.</div> : (
+          <div className="stack-s">
+            {pending.map(e => (
+              <div key={e.id} className="qrow" style={{ cursor: "default", flexWrap: "wrap" }}>
+                <div>
+                  <div style={{ fontWeight: 600 }}>{inr(e.amount)} via {e.mode} — {e.customer || "Untitled customer"}</div>
+                  <div className="sm mute">{e.branch}{e.chassis && ` · Chassis ${e.chassis}`} · received {e.date} · entered by {e.enteredBy}{e.reference ? ` · Ref ${e.reference}` : ""}</div>
+                </div>
+                <div className="flex">
+                  <button className="lnk mu" onClick={() => onOpen(e.dealId)}>View deal</button>
+                  <button className="btn go xs" onClick={() => onVerify(e.dealId, e.id)}>Verify</button>
+                  <button className="btn no xs" onClick={() => setRejectModal({ dealId: e.dealId, paymentId: e.id, entry: e })}>Reject</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      {rejectModal && (
+        <ModalForm title="Reject this payment" message={`${inr(rejectModal.entry.amount)} via ${rejectModal.entry.mode}, received ${rejectModal.entry.date}`}
+          fields={[{ name: "reason", label: "Reason (e.g. cheque bounced, amount mismatch)", autoFocus: true }]}
+          onSubmit={v => { onReject(rejectModal.dealId, rejectModal.paymentId, v.reason || ""); }} onClose={() => setRejectModal(null)} />
+      )}
+    </div>
+  );
+}
 
-function AuditTrail({
-  deals,
-  onOpen
-}) {
+function AuditTrail({ deals, onOpen }) {
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
-  const entries = [];
-  deals.forEach(d => (d.activity || []).forEach(a => {
-    entries.push({
-      ...a,
-      dealId: d.id,
-      customer: d.customer.name,
-      chassis: d.vehicle.chassisNo,
-      branch: d.branch
-    });
-  }));
-  entries.sort((a, b) => new Date(b.at) - new Date(a.at));
+  const entries = flat(deals, "activity").sort((a, b) => new Date(b.at) - new Date(a.at));
   const filtered = q ? entries.filter(e => [e.dealId, e.chassis, e.customer, e.by, e.note].filter(Boolean).some(v => v.toLowerCase().includes(q))) : entries;
-  return /*#__PURE__*/React.createElement("div", {
-    className: "space-y-3"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "relative"
-  }, /*#__PURE__*/React.createElement(Search, {
-    className: "w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"
-  }), /*#__PURE__*/React.createElement("input", {
-    value: query,
-    onChange: e => setQuery(e.target.value),
-    placeholder: "Search by chassis number, customer, deal ID, or who made the change…",
-    className: "w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-blue-700/40 focus:border-blue-700"
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "bg-white border border-slate-200 rounded-lg p-4"
-  }, filtered.length === 0 ? /*#__PURE__*/React.createElement("div", {
-    className: "text-sm text-slate-400 italic py-8 text-center"
-  }, "No activity to show.") : /*#__PURE__*/React.createElement("div", {
-    className: "space-y-2 overflow-y-auto pr-1",
-    style: {
-      maxHeight: "70vh"
-    }
-  }, filtered.map((e, i) => /*#__PURE__*/React.createElement("button", {
-    key: i,
-    onClick: () => onOpen(e.dealId),
-    className: "w-full text-left border border-slate-100 rounded-md p-2.5 hover:border-blue-700/40"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between gap-2 flex-wrap"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-slate-400"
-  }, new Date(e.at).toLocaleString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit"
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-slate-400 font-mono"
-  }, e.dealId, e.chassis && ` · Chassis ${e.chassis}`)), /*#__PURE__*/React.createElement("div", {
-    className: "text-sm text-slate-700 mt-1"
-  }, /*#__PURE__*/React.createElement("b", null, e.by), " ", /*#__PURE__*/React.createElement("span", {
-    className: "text-slate-400"
-  }, "(", e.role, ")"), " — ", e.note), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-slate-400"
-  }, e.customer || "Untitled customer", " · ", e.branch))))));
+  return (
+    <div className="stack">
+      <div className="search">
+        <Search size={16} />
+        <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search by chassis number, customer, deal ID, or who made the change…" />
+      </div>
+      <div className="card">
+        {filtered.length === 0 ? <div className="center" style={{ padding: "32px 0", fontStyle: "italic" }}>No activity to show.</div> : (
+          <div className="stack-s" style={{ maxHeight: "70vh", overflowY: "auto", paddingRight: 4 }}>
+            {filtered.map((e, i) => (
+              <button key={i} className="qrow" style={{ display: "block" }} onClick={() => onOpen(e.dealId)}>
+                <div className="flex between wrapf sm mute">
+                  <span>{new Date(e.at).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                  <span className="mono">{e.dealId}{e.chassis && ` · Chassis ${e.chassis}`}</span>
+                </div>
+                <div style={{ margin: "3px 0" }}><b>{e.by}</b> <span className="mute">({e.role})</span> — {e.note}</div>
+                <div className="sm mute">{e.customer || "Untitled customer"} · {e.branch}</div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
-/* ---------------------------------------------------------------------- */
-/*  Reports                                                                */
-/* ---------------------------------------------------------------------- */
+/* ====================================================================== */
+/*  New deal modal (branch is the mandatory first step)                    */
+/* ====================================================================== */
 
-function Reports({
-  deals
-}) {
-  const withCalc = deals.map(d => ({
-    d,
-    c: calc(d)
-  }));
-  const funnel = Object.keys(STATUS_META).map(s => ({
-    status: s,
-    count: deals.filter(d => d.status === s).length
-  }));
-  const totalNet = withCalc.reduce((s, x) => s + x.c.netOnRoad, 0);
-  const totalCollected = withCalc.reduce((s, x) => s + x.c.totalCollected, 0);
-  const totalDue = withCalc.reduce((s, x) => s + Math.max(0, x.c.balance), 0);
-  const totalPendingClaims = deals.reduce((s, d) => s + claimPendingAmount(d), 0);
-  return /*#__PURE__*/React.createElement("div", {
-    className: "space-y-5"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-2 md:grid-cols-4 gap-3"
-  }, [{
-    label: "Total deals",
-    value: deals.length,
-    color: "#1B4F9C"
-  }, {
-    label: "Net order value",
-    value: inr(totalNet),
-    color: "#374151"
-  }, {
-    label: "Collected",
-    value: inr(totalCollected),
-    color: "#1E7A4C"
-  }, {
-    label: "Outstanding dues",
-    value: inr(totalDue),
-    color: "#B5461C"
-  }, {
-    label: "Pending TML claims",
-    value: inr(totalPendingClaims),
-    color: "#B45309"
-  }].map(k => /*#__PURE__*/React.createElement("div", {
-    key: k.label,
-    className: "bg-white border border-slate-200 rounded-lg p-3"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs uppercase tracking-wide text-slate-500 font-semibold"
-  }, k.label), /*#__PURE__*/React.createElement("div", {
-    className: "text-xl font-bold mt-1",
-    style: {
-      color: k.color,
-      fontFamily: "'Barlow Condensed', sans-serif"
-    }
-  }, k.value)))), /*#__PURE__*/React.createElement("div", {
-    className: "bg-white border border-slate-200 rounded-lg p-4"
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: "'Barlow Condensed', sans-serif"
-    },
-    className: "font-bold text-slate-800 text-lg tracking-wide mb-3"
-  }, "DEAL-TO-DELIVERY FUNNEL"), /*#__PURE__*/React.createElement("div", {
-    className: "space-y-2"
-  }, funnel.map(f => {
-    const meta = STATUS_META[f.status];
-    const max = Math.max(1, ...funnel.map(x => x.count));
-    return /*#__PURE__*/React.createElement("div", {
-      key: f.status,
-      className: "flex items-center gap-3"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "w-40 text-xs text-slate-600 shrink-0"
-    }, meta.label), /*#__PURE__*/React.createElement("div", {
-      className: "flex-1 bg-slate-100 rounded h-5 overflow-hidden"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "h-full rounded",
-      style: {
-        width: `${f.count / max * 100}%`,
-        background: meta.color,
-        minWidth: f.count ? "8px" : 0
-      }
-    })), /*#__PURE__*/React.createElement("div", {
-      className: "w-6 text-xs font-bold text-slate-700"
-    }, f.count));
-  }))));
+function NewDealModal({ isOpen, onClose, onCreate, session }) {
+  const initBranch = () => normalizeBranch(session?.branch) || "Sasaram";
+  const [branch, setBranch] = useState(initBranch);
+  const [f, setF] = useState({ companyName: "", gstNo: "", name: "", mobile: "" });
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (isOpen) { setBranch(initBranch()); setF({ companyName: "", gstNo: "", name: "", mobile: "" }); setError(""); }
+  }, [isOpen, session]);
+  if (!isOpen) return null;
+
+  const submit = e => {
+    e.preventDefault();
+    if (!branch) return setError("Please select a mandatory dealership branch.");
+    onCreate(branch, { companyName: f.companyName.trim(), gstNo: f.gstNo.trim().toUpperCase(), name: f.name.trim(), mobile: f.mobile.trim() });
+  };
+  const input = (key, label, placeholder, extra = {}) => (
+    <label className="fld">
+      <span className="lbl">{label}</span>
+      <span className="inp"><input type="text" autoComplete="off" value={f[key]} placeholder={placeholder} {...extra} onChange={e => setF(s => ({ ...s, [key]: extra.upper ? e.target.value.toUpperCase() : e.target.value }))} /></span>
+    </label>
+  );
+
+  return (
+    <div className="scrim">
+      <div className="modal lg">
+        <div className="mhead">
+          <div>
+            <div className="flex sm" style={{ color: "#E8A58A", letterSpacing: ".1em", textTransform: "uppercase", fontWeight: 700 }}><Truck size={14} /> Tata Punya ERP · New Sales Deal</div>
+            <div className="h" style={{ fontSize: 24, marginTop: 4 }}>Initialize deal</div>
+            <div className="sm" style={{ color: "#A9A293" }}>Select mandatory dealership branch (Sasaram, Bihiya, Buxas, Mohaniya).</div>
+          </div>
+          <button type="button" onClick={onClose}><XCircle size={20} /></button>
+        </div>
+        <form className="mbody stack" onSubmit={submit} autoComplete="off">
+          {error && <Banner kind="bad">{error}</Banner>}
+          <div className="stack-s">
+            <div className="flex between"><span className="lbl" style={{ color: "var(--ink)" }}>1. Dealership branch <span className="bad">* mandatory</span></span></div>
+            <div className="seg">
+              {BRANCHES.map(b => (
+                <button key={b} type="button" className={branch === b ? "on" : ""} onClick={() => { setBranch(b); setError(""); }}>
+                  <span><b style={{ display: "block" }}>{b}</b><span className="sm mute" style={{ fontWeight: 500 }}>{BRANCH_SUB[b]}</span></span>
+                  {branch === b ? <CheckCircle2 size={18} color="#D2481B" /> : <span className="ring" />}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="stack-s" style={{ paddingTop: 12, borderTop: "1px solid var(--line)" }}>
+            <div className="flex between"><span className="lbl" style={{ color: "var(--ink)" }}>2. Company name & customer info</span><span className="sm mute">Can also edit in deal editor</span></div>
+            <div className="two">
+              {input("companyName", "Company Name", "Company / Firm name")}
+              {input("gstNo", "GST No. (Optional)", "15-digit GSTIN", { upper: true, className: "mono" })}
+              {input("name", "Customer / Contact Name", "Full contact name")}
+              {input("mobile", "Mobile Number", "10-digit mobile number")}
+            </div>
+          </div>
+          <div className="flex" style={{ justifyContent: "flex-end", paddingTop: 12, borderTop: "1px solid var(--line)" }}>
+            <button type="button" className="btn" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn acc" disabled={!branch}>Create Deal & Open <ChevronRight size={15} /></button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
 }
 
-/* ---------------------------------------------------------------------- */
+/* ====================================================================== */
 /*  App shell                                                              */
-/* ---------------------------------------------------------------------- */
+/* ====================================================================== */
+
+const ROLE_TABS = {
+  admin: [["list", "All Deals", ClipboardCheck], ["approvals", "Approvals", ShieldCheck], ["toverify", "To Verify", CheckCircle2], ["reports", "Reports", BarChart3], ["audit", "Audit Trail", FileText], ["users", "User Management", Users]],
+  sales: [["list", "Sales Deals", ClipboardCheck], ["reports", "Reports", BarChart3]],
+  accounts: [["toverify", "Payments To Verify", CheckCircle2], ["list", "Deals Ledger", ClipboardCheck], ["reports", "Financial Reports", BarChart3]],
+  rto: [["list", "RTO & Compliance Deals", ClipboardCheck]],
+};
+const CACHE_KEY = "sales_erp_deals_cache";
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -2173,25 +1032,19 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("list");
   const [openId, setOpenId] = useState(null);
+  const [newDealModalOpen, setNewDealModalOpen] = useState(false);
 
-  // Check existing session on load
   useEffect(() => {
     (async () => {
       try {
         const res = await fetch("/api/auth/me");
-        if (res.ok) {
-          const data = await res.json();
-          if (data.user) {
-            setSession(data.user);
-          }
-        }
-      } catch (err) {
-        console.warn("Session check error:", err);
-      } finally {
-        setAuthChecking(false);
-      }
+        if (res.ok) { const data = await res.json(); if (data.user) setSession(data.user); }
+      } catch (err) { console.warn("Session check error:", err); }
+      finally { setAuthChecking(false); }
     })();
   }, []);
+
+  const cacheDeals = list => { try { localStorage.setItem(CACHE_KEY, JSON.stringify(list)); } catch { } };
 
   const fetchDealsFromServer = async () => {
     setLoading(true);
@@ -2199,22 +1052,10 @@ export default function App() {
       const res = await fetch("/api/deals");
       if (res.ok) {
         const data = await res.json();
-        if (data.deals) {
-          setDeals(data.deals);
-          try {
-            localStorage.setItem("sales_erp_deals_cache", JSON.stringify(data.deals));
-          } catch { }
-          setLoading(false);
-          return;
-        }
+        if (data.deals) { setDeals(data.deals); cacheDeals(data.deals); setLoading(false); return; }
       }
-    } catch (e) {
-      console.warn("Failed to fetch deals from server, loading cached:", e);
-    }
-    try {
-      const cached = localStorage.getItem("sales_erp_deals_cache");
-      if (cached) setDeals(JSON.parse(cached));
-    } catch { }
+    } catch (e) { console.warn("Failed to fetch deals from server, loading cached:", e); }
+    try { const cached = localStorage.getItem(CACHE_KEY); if (cached) setDeals(JSON.parse(cached)); } catch { }
     setLoading(false);
   };
 
@@ -2227,284 +1068,96 @@ export default function App() {
 
   const persist = async next => {
     setDeals(next);
+    cacheDeals(next);
     try {
-      localStorage.setItem("sales_erp_deals_cache", JSON.stringify(next));
-    } catch { }
-    try {
-      await fetch("/api/deals", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ deals: next }),
-      });
-    } catch (err) {
-      console.error("Failed to sync deals to server:", err);
-    }
+      await fetch("/api/deals", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ deals: next }) });
+    } catch (err) { console.error("Failed to sync deals to server:", err); }
   };
 
   const handleLogout = async () => {
-    try {
-      await fetch("/api/auth/logout", { method: "POST" });
-    } catch { }
+    try { await fetch("/api/auth/logout", { method: "POST" }); } catch { }
     setSession(null);
     setOpenId(null);
   };
 
-  const handleNew = () => {
-    const d = newDeal(session.branch, session);
+  const handleCreateDealWithDetails = (branch, customerDetails) => {
+    const d = newDeal(branch, session, customerDetails);
     persist([...deals, d]);
     setOpenId(d.id);
+    setNewDealModalOpen(false);
   };
+  const handleUpdateDeal = (id, fn) => { if (deals.some(x => x.id === id)) persist(deals.map(x => (x.id === id ? fn(x) : x))); };
+  const handleDeleteDeal = id => { persist(deals.filter(x => x.id !== id)); setOpenId(null); };
 
-  const handleUpdateDeal = (id, updaterFn) => {
-    const current = deals.find(x => x.id === id);
-    if (!current) return;
-    persist(deals.map(x => (x.id === id ? updaterFn(x) : x)));
-  };
-
-  const handleDeleteDeal = id => {
-    persist(deals.filter(x => x.id !== id));
-    setOpenId(null);
-  };
-
-  const appendActivity = (deal, note) => [
-    ...(deal.activity || []),
-    {
-      at: new Date().toISOString(),
-      by: session.name,
-      role: session.role,
-      note,
-    },
-  ];
-
-  const verifyPaymentFor = (dealId, paymentId) =>
+  const paymentUpdate = (dealId, paymentId, patch, noteFn) =>
     handleUpdateDeal(dealId, p => {
       const entry = p.paymentLog.find(e => e.id === paymentId);
-      return {
-        ...p,
-        paymentLog: p.paymentLog.map(e =>
-          e.id === paymentId
-            ? {
-                ...e,
-                status: "verified",
-                verifiedBy: session.name,
-              }
-            : e
-        ),
-        activity: appendActivity(
-          p,
-          `Verified payment ${entry ? inr(entry.amount) + " via " + entry.mode : ""}`
-        ),
-      };
+      return { ...patchIn("paymentLog", paymentId, patch)(p), activity: [...(p.activity || []), logEntry(session.name, session.role, noteFn(entry ? inr(entry.amount) + " via " + entry.mode : ""))] };
     });
-
-  const rejectPaymentFor = (dealId, paymentId, reason) =>
-    handleUpdateDeal(dealId, p => {
-      const entry = p.paymentLog.find(e => e.id === paymentId);
-      return {
-        ...p,
-        paymentLog: p.paymentLog.map(e =>
-          e.id === paymentId
-            ? {
-                ...e,
-                status: "rejected",
-                rejectedBy: session.name,
-                rejectionReason: reason,
-              }
-            : e
-        ),
-        activity: appendActivity(
-          p,
-          `Rejected payment ${entry ? inr(entry.amount) + " via " + entry.mode : ""}${reason ? ": " + reason : ""}`
-        ),
-      };
-    });
+  const verifyPaymentFor = (dealId, paymentId) => paymentUpdate(dealId, paymentId, { status: "verified", verifiedBy: session.name }, l => `Verified payment ${l}`);
+  const rejectPaymentFor = (dealId, paymentId, reason) => paymentUpdate(dealId, paymentId, { status: "rejected", rejectedBy: session.name, rejectionReason: reason }, l => `Rejected payment ${l}${reason ? ": " + reason : ""}`);
 
   if (authChecking) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white space-y-3">
-        <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-500 border-t-transparent"></div>
-        <div className="text-xs text-slate-400 font-mono">Initializing Dealership Workspace…</div>
+      <div className="erp" style={{ display: "grid", placeItems: "center", background: "#191714", color: "#A9A293" }}>
+        <style>{CSS}</style>
+        <div style={{ textAlign: "center" }}><div className="spin" /><div className="mono sm">Initializing Tata Punya ERP Workspace…</div></div>
       </div>
     );
   }
-
-  if (!session) {
-    return <LoginPage onLoginSuccess={setSession} />;
-  }
+  if (!session) return <LoginPage onLoginSuccess={setSession} />;
 
   const openDeal = deals.find(d => d.id === openId);
-  const roleMeta = ROLES.find(r => r.id === session.role) || {
-    label: session.role,
-    color: "#1B4F9C",
-  };
+  const roleMeta = ROLES.find(r => r.id === session.role) || { label: session.role, color: "#D2481B" };
+  const roleTabs = ROLE_TABS[session.role] || [];
+  const isAdmin = session.role === "admin";
+  const canCreate = session.role === "sales" || isAdmin;
+  const jumpToDeal = id => { setOpenId(id); setTab("list"); };
 
-  // Build authorized tabs per role
-  const roleTabs = [];
-  if (session.role === "admin") {
-    roleTabs.push(
-      { id: "list", label: "All Deals", icon: ClipboardCheck },
-      { id: "approvals", label: "Approvals", icon: ShieldCheck },
-      { id: "toverify", label: "To Verify", icon: CheckCircle2 },
-      { id: "reports", label: "Reports", icon: BarChart3 },
-      { id: "audit", label: "Audit Trail", icon: FileText },
-      { id: "users", label: "User Management", icon: Users }
-    );
-  } else if (session.role === "sales") {
-    roleTabs.push(
-      { id: "list", label: "Sales Deals", icon: ClipboardCheck },
-      { id: "reports", label: "Reports", icon: BarChart3 }
-    );
-  } else if (session.role === "accounts") {
-    roleTabs.push(
-      { id: "toverify", label: "Payments To Verify", icon: CheckCircle2 },
-      { id: "list", label: "Deals Ledger", icon: ClipboardCheck },
-      { id: "reports", label: "Financial Reports", icon: BarChart3 }
-    );
-  } else if (session.role === "rto") {
-    roleTabs.push(
-      { id: "list", label: "RTO & Compliance Deals", icon: ClipboardCheck }
-    );
-  } else if (session.role === "claims") {
-    roleTabs.push(
-      { id: "list", label: "TML Claims Tracker", icon: ClipboardCheck },
-      { id: "reports", label: "Reports", icon: BarChart3 }
-    );
-  }
+  let body;
+  if (loading) body = <div className="center"><div className="spin" />Loading records…</div>;
+  else if (openDeal) body = <DealEditor deal={openDeal} deals={deals} session={session} onUpdate={fn => handleUpdateDeal(openDeal.id, fn)} onBack={() => setOpenId(null)} onDelete={() => handleDeleteDeal(openDeal.id)} />;
+  else if (tab === "users" && isAdmin) body = <UserManagement currentAdmin={session} />;
+  else if (tab === "list") body = <DealsList deals={deals} session={session} onOpen={setOpenId} onNew={canCreate ? () => setNewDealModalOpen(true) : undefined} />;
+  else if (tab === "reports") body = <ReportsDashboard deals={deals} session={session} onOpen={setOpenId} />;
+  else if (tab === "approvals" && isAdmin) body = <Approvals deals={deals} onOpen={jumpToDeal} />;
+  else if (tab === "toverify") body = <PaymentsToVerify deals={deals} onVerify={verifyPaymentFor} onReject={rejectPaymentFor} onOpen={jumpToDeal} />;
+  else if (tab === "audit" && isAdmin) body = <AuditTrail deals={deals} onOpen={jumpToDeal} />;
+  else body = <div className="center">Please select an authorized tab.</div>;
 
   return (
-    <div className="min-h-screen bg-slate-100">
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600;700&display=swap'); * { font-family: 'Inter', sans-serif; }`}</style>
-      
-      {/* Top Header */}
-      <div className="bg-slate-900 text-white px-4 py-3 flex items-center justify-between sticky top-0 z-20 shadow-md">
-        <div className="flex items-center gap-2.5">
-          <div className="p-1.5 rounded-lg bg-blue-600 text-white">
-            <Truck className="w-5 h-5 text-amber-300" />
-          </div>
-          <div>
-            <span
-              style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
-              className="font-bold tracking-wide text-lg text-white"
-            >
-              DEALERSHIP ERP
-            </span>
-            <span className="text-[10px] bg-slate-800 text-blue-300 px-2 py-0.5 rounded-full ml-2 border border-slate-700 font-mono">
-              RBAC Portal
-            </span>
+    <div className="erp">
+      <style>{CSS}</style>
+
+      <header className="top">
+        <div className="flex" style={{ gap: 12 }}>
+          <div className="mark"><Truck size={18} /></div>
+          <div className="flex">
+            <span className="brand disp">TATA PUNYA</span>
+            <span className="env">ERP</span>
           </div>
         </div>
-
-        <div className="flex items-center gap-3 text-sm">
-          <div className="text-right hidden sm:block">
-            <div className="font-semibold text-slate-100">{session.name}</div>
-            <div className="text-xs flex items-center justify-end gap-1.5 text-slate-400">
-              <span
-                className="inline-block w-2 h-2 rounded-full"
-                style={{ background: roleMeta.color }}
-              ></span>
-              <span className="font-medium text-slate-300 uppercase tracking-wider text-[11px]">
-                {roleMeta.label}
-              </span>
-              <span>· {session.branch}</span>
-            </div>
+        <div className="flex" style={{ gap: 14 }}>
+          <div className="who">
+            <div style={{ fontWeight: 600 }}>{session.name}</div>
+            <small><span className="dot" style={{ background: roleMeta.color }} />{roleMeta.label} · {normalizeBranch(session.branch)}</small>
           </div>
-
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold border border-slate-700 transition-colors"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            Logout
-          </button>
+          <button className="out" onClick={handleLogout}><LogOut size={14} /> Logout</button>
         </div>
-      </div>
+      </header>
 
-      {/* Tabs Navigation */}
       {!openDeal && (
-        <div className="flex bg-white border-b border-slate-200 sticky top-14 z-10 overflow-x-auto shadow-sm">
-          {roleTabs.map(t => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`flex items-center gap-1.5 px-4 py-3 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors ${
-                tab === t.id
-                  ? "border-blue-700 text-blue-700 bg-blue-50/50"
-                  : "border-transparent text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              <t.icon className="w-4 h-4" /> {t.label}
-            </button>
+        <nav className="tabs">
+          {roleTabs.map(([id, label, Icon]) => (
+            <button key={id} className={`tab ${tab === id ? "on" : ""}`} onClick={() => setTab(id)}><Icon size={16} /> {label}</button>
           ))}
-
-          <button
-            onClick={fetchDealsFromServer}
-            className="ml-auto flex items-center gap-1 px-4 text-xs text-slate-400 hover:text-slate-600 whitespace-nowrap"
-          >
-            <RefreshCw className="w-3.5 h-3.5" /> Refresh
-          </button>
-        </div>
+          <button className="tab" style={{ marginLeft: "auto", fontSize: 12, fontWeight: 500 }} onClick={fetchDealsFromServer}><RefreshCw size={14} /> Refresh</button>
+        </nav>
       )}
 
-      {/* Content Body */}
-      <div className="max-w-5xl mx-auto p-4 sm:p-6">
-        {loading ? (
-          <div className="text-center py-16 text-slate-400 text-sm space-y-2">
-            <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-blue-600 border-t-transparent" />
-            <div>Loading records…</div>
-          </div>
-        ) : openDeal ? (
-          <DealEditor
-            deal={openDeal}
-            deals={deals}
-            session={session}
-            onUpdate={fn => handleUpdateDeal(openDeal.id, fn)}
-            onBack={() => setOpenId(null)}
-            onDelete={() => handleDeleteDeal(openDeal.id)}
-          />
-        ) : tab === "users" && session.role === "admin" ? (
-          <UserManagement currentAdmin={session} />
-        ) : tab === "list" ? (
-          <DealsList
-            deals={deals}
-            session={session}
-            onOpen={setOpenId}
-            onNew={session.role === "sales" || session.role === "admin" ? handleNew : undefined}
-          />
-        ) : tab === "reports" ? (
-          <Reports deals={deals} />
-        ) : tab === "approvals" && session.role === "admin" ? (
-          <Approvals
-            deals={deals}
-            onOpen={id => {
-              setOpenId(id);
-              setTab("list");
-            }}
-          />
-        ) : tab === "toverify" ? (
-          <PaymentsToVerify
-            deals={deals}
-            onVerify={verifyPaymentFor}
-            onReject={rejectPaymentFor}
-            onOpen={id => {
-              setOpenId(id);
-              setTab("list");
-            }}
-          />
-        ) : tab === "audit" && session.role === "admin" ? (
-          <AuditTrail
-            deals={deals}
-            onOpen={id => {
-              setOpenId(id);
-              setTab("list");
-            }}
-          />
-        ) : (
-          <div className="text-center py-12 text-slate-400 text-sm">
-            Please select an authorized tab.
-          </div>
-        )}
-      </div>
+      <main className="wrap">{body}</main>
+
+      <NewDealModal isOpen={newDealModalOpen} onClose={() => setNewDealModalOpen(false)} onCreate={handleCreateDealWithDetails} session={session} />
     </div>
   );
 }
-

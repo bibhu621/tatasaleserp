@@ -12,8 +12,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "Sales Page",
-  description: "Sales Project",
+  title: "Tata Punya ERP - TATA PUNYA",
+  description: "Tata Punya ERP - Commercial Vehicle Sales & Operations Platform · TATA PUNYA",
 };
 
 export default function RootLayout({ children }) {

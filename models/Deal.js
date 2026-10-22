@@ -10,7 +10,8 @@ const DealSchema = new mongoose.Schema(
     },
     branch: {
       type: String,
-      default: "Sasaram (Rohtas)",
+      default: "Sasaram",
+      required: true,
     },
     status: {
       type: String,

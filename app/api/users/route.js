@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/auth";
 import { getAllUsers, createUser } from "@/lib/db";
 
-const VALID_ROLES = ["admin", "sales", "accounts", "rto", "claims"];
+const VALID_ROLES = ["admin", "sales", "accounts", "rto"];
 
 export async function GET(request) {
   const auth = requireRole(request, ["admin"]);
@@ -53,7 +53,7 @@ export async function POST(request) {
       password,
       name,
       role,
-      branch: branch || "Sasaram (Rohtas)",
+      branch: branch || "Sasaram",
     });
 
     return NextResponse.json({

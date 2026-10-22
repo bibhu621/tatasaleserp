@@ -1,17 +1,16 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { UserPlus, Trash2, Shield, UserCheck, AlertCircle, RefreshCw, CheckCircle2 } from "lucide-react";
+import { UserPlus, Trash2, Shield, UserCheck, AlertCircle, RefreshCw, CheckCircle2, Sparkles } from "lucide-react";
 
 const ROLE_OPTIONS = [
   { id: "sales", label: "Sales", color: "bg-blue-50 text-blue-700 border-blue-200" },
   { id: "admin", label: "Admin", color: "bg-red-50 text-red-700 border-red-200" },
   { id: "accounts", label: "Accounts", color: "bg-emerald-50 text-emerald-700 border-emerald-200" },
   { id: "rto", label: "RTO / Registration", color: "bg-purple-50 text-purple-700 border-purple-200" },
-  { id: "claims", label: "Claims", color: "bg-amber-50 text-amber-700 border-amber-200" },
 ];
 
-const BRANCH_OPTIONS = ["Sasaram (Rohtas)", "Bihiya (Bhojpur)", "Other"];
+const BRANCH_OPTIONS = ["Sasaram", "Bihiya", "Buxas", "Mohaniya"];
 
 export default function UserManagement({ currentAdmin }) {
   const [users, setUsers] = useState([]);
@@ -112,10 +111,10 @@ export default function UserManagement({ currentAdmin }) {
         <div>
           <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
             <Shield className="w-5 h-5 text-red-600" />
-            User Access & Profile Management
+            TATA PUNYA · User Access & Profile Management
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Admin console to create users, assign specific roles, set passwords, and manage dealership credentials.
+            Admin console to create users, assign specific roles, set passwords, and manage Tata Punya ERP credentials.
           </p>
         </div>
 
@@ -152,7 +151,7 @@ export default function UserManagement({ currentAdmin }) {
             </span>
           </div>
 
-          <form onSubmit={handleCreateUser} className="space-y-3">
+          <form onSubmit={handleCreateUser} autoComplete="off" className="space-y-3">
             <div>
               <label className="text-xs font-semibold uppercase text-slate-600 block mb-1">
                 Full Name *
@@ -160,7 +159,8 @@ export default function UserManagement({ currentAdmin }) {
               <input
                 type="text"
                 required
-                placeholder="e.g. Ramesh Kumar"
+                placeholder="Full name"
+                autoComplete="off"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-blue-600"
@@ -174,7 +174,11 @@ export default function UserManagement({ currentAdmin }) {
               <input
                 type="text"
                 required
-                placeholder="e.g. ramesh_sales"
+                placeholder="Staff username"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="none"
+                spellCheck="false"
                 value={formData.username}
                 onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                 className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-blue-600"
@@ -188,7 +192,8 @@ export default function UserManagement({ currentAdmin }) {
               <input
                 type="password"
                 required
-                placeholder="Minimum 5 characters"
+                placeholder="Set password (min 5 characters)"
+                autoComplete="new-password"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-blue-600"
@@ -231,13 +236,15 @@ export default function UserManagement({ currentAdmin }) {
               </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full mt-2 py-2 px-3 bg-blue-700 hover:bg-blue-800 text-white rounded-md text-sm font-semibold transition-colors disabled:opacity-50"
-            >
-              {submitting ? "Creating User..." : "Register User"}
-            </button>
+            <div className="mt-2">
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full py-2.5 px-3 bg-blue-700 hover:bg-blue-800 text-white rounded-md text-sm font-semibold transition-colors disabled:opacity-50"
+              >
+                {submitting ? "Creating User..." : "Register User"}
+              </button>
+            </div>
           </form>
         </div>
 

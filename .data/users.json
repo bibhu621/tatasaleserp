@@ -5,7 +5,7 @@
     "password": "$2b$10$SJ0j3.Sol.FFlXYNxgkMXOkLy8Qs5y9Gka6ye3SD1oEpKTYhqCgNK",
     "name": "System Administrator",
     "role": "admin",
-    "branch": "Sasaram (Rohtas)",
+    "branch": "Sasaram",
     "isActive": true,
     "createdAt": "2026-09-10T12:11:35.576Z"
   },
@@ -15,8 +15,18 @@
     "password": "$2b$10$QJNIrmfPBAWJAXAPXzo2x.NkpjsgzsMal8c/TESYviI0V9fDfV3eO",
     "name": "Ravi Kumar",
     "role": "sales",
-    "branch": "Bihiya (Bhojpur)",
+    "branch": "Bihiya",
     "isActive": true,
     "createdAt": "2026-09-10T12:13:46.745Z"
+  },
+  {
+    "id": "usr_mvaplpoa",
+    "username": "ranjan21",
+    "password": "$2b$10$7BBwGKrZVS06Ty1WBYfiOOGY67tQcaYSUCJbLo8XpXl79tMR8drLW",
+    "name": "ranjan",
+    "role": "accounts",
+    "branch": "Sasaram",
+    "isActive": true,
+    "createdAt": "2026-10-16T08:32:07.738Z"
   }
 ]

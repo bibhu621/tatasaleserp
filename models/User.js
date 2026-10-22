@@ -20,12 +20,12 @@ const UserSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["admin", "sales", "accounts", "rto", "claims"],
+      enum: ["admin", "sales", "accounts", "rto"],
       required: true,
     },
     branch: {
       type: String,
-      default: "Sasaram (Rohtas)",
+      default: "Sasaram",
     },
     isActive: {
       type: Boolean,

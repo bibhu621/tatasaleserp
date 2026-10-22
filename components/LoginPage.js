@@ -1,19 +1,74 @@
 "use client";
 
 import React, { useState } from "react";
-import { Truck, ShieldCheck, Lock, User, ArrowRight, CheckCircle2, AlertCircle, Sparkles } from "lucide-react";
+import { Truck, Lock, User, ArrowRight, AlertCircle, Eye, EyeOff, Building2, FileSpreadsheet, Wallet, ShieldCheck } from "lucide-react";
+
+const BRANCH_LIST = [
+  { name: "Sasaram", tag: "Headquarters" },
+  { name: "Bihiya", tag: "Branch" },
+  { name: "Buxas", tag: "Branch" },
+  { name: "Mohaniya", tag: "Branch" },
+];
+
+const CORE_MODULES = [
+  { title: "Commercial Deal Desk", desc: "Vehicle pricing, official term sheets, discount approvals & margin governance.", icon: FileSpreadsheet },
+  { title: "Accounts & Audit", desc: "UTR reconciliation, cheque tracking, payment verification & ledger integrity.", icon: Wallet },
+  { title: "Statutory & RTO", desc: "Insurance policies, temporary registration, HSRP & compliance tracking.", icon: ShieldCheck },
+  { title: "Branch Network", desc: "Synchronized deal workflow across Sasaram, Bihiya, Buxas & Mohaniya.", icon: Building2 },
+];
+
+const CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+.lg{--ink:#191714;--paper:#FAF8F3;--line:#DDD6C8;--mute:#7A7468;--acc:#D2481B;min-height:100vh;display:grid;grid-template-columns:1.15fr 1fr;font:14px/1.5 'Hanken Grotesk',sans-serif;color:var(--ink)}
+.lg *{box-sizing:border-box}
+.lg .disp{font-family:'Bricolage Grotesque',sans-serif;letter-spacing:-.02em}
+.lg .mono{font-family:'JetBrains Mono',monospace}
+.lg .flex{display:flex;align-items:center;gap:10px}
+.lg .left{background:var(--ink);color:#F3EFE6;padding:36px 48px;display:flex;flex-direction:column;justify-content:space-between;gap:36px;position:relative;overflow:hidden}
+.lg .left::after{content:"";position:absolute;right:-120px;bottom:-120px;width:380px;height:380px;border-radius:50%;border:56px solid #24211D;pointer-events:none}
+.lg .mark{width:38px;height:38px;border-radius:9px;background:var(--acc);display:grid;place-items:center;color:#fff}
+.lg .brand{font-size:21px;font-weight:800;letter-spacing:.04em}
+.lg .eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#E8A58A;font-weight:700}
+.lg h1{font-size:clamp(34px,4.6vw,54px);line-height:1.02;font-weight:800;margin:10px 0 16px}
+.lg h1 em{font-style:normal;color:var(--acc)}
+.lg .lead{color:#A9A293;max-width:460px;font-size:15px}
+.lg .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
+.lg .chip{border:1px solid #3A362F;border-radius:99px;padding:5px 12px;font-size:12px;display:flex;align-items:center;gap:6px;color:#D9D3C5}
+.lg .chip small{color:#7F796C;font-size:10px}
+.lg .mods{display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:1px solid #34302A;position:relative;z-index:1}
+.lg .mod{padding:16px 16px 4px 0;border-bottom:0}
+.lg .mod b{display:flex;align-items:center;gap:8px;font-size:13.5px}
+.lg .mod svg{color:var(--acc)}
+.lg .mod p{margin:4px 0 12px;color:#8F897B;font-size:12px}
+.lg .right{background:#EFEBE3;display:flex;flex-direction:column;justify-content:space-between;padding:28px 40px}
+.lg .status{align-self:flex-end;font-size:12px;color:var(--mute);display:flex;align-items:center;gap:7px}
+.lg .status i{width:8px;height:8px;border-radius:50%;background:#3E9B63;animation:pl 1.8s infinite}
+@keyframes pl{50%{opacity:.35}}
+.lg .card{width:100%;max-width:400px;margin:0 auto;background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:30px;box-shadow:0 1px 0 #fff inset,0 18px 40px -24px rgba(25,23,20,.35)}
+.lg .card h2{font-size:26px;font-weight:800;margin:0}
+.lg .card p{margin:4px 0 20px;color:var(--mute);font-size:13px}
+.lg .lbl{display:block;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--mute);font-weight:700;margin-bottom:5px}
+.lg .inp{position:relative;margin-bottom:16px}
+.lg .inp>svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--mute);pointer-events:none}
+.lg .inp input{width:100%;padding:11px 40px 11px 38px;border:1px solid var(--line);border-radius:10px;background:#fff;font:inherit;color:var(--ink);outline:0;transition:.15s}
+.lg .inp input:focus{border-color:var(--ink);box-shadow:0 0 0 3px rgba(25,23,20,.08)}
+.lg .eye{position:absolute;right:0;top:0;bottom:0;padding:0 12px;background:none;border:0;color:var(--mute);cursor:pointer}
+.lg .eye:hover{color:var(--ink)}
+.lg .err{display:flex;gap:8px;align-items:center;background:#FBE5E1;color:#7C1D15;border:1px solid #EBBDB6;border-radius:10px;padding:10px 12px;font-size:12.5px;margin-bottom:16px}
+.lg .go{width:100%;display:flex;justify-content:center;align-items:center;gap:8px;padding:12px;border:0;border-radius:10px;background:var(--ink);color:#fff;font:inherit;font-weight:700;cursor:pointer;transition:.15s}
+.lg .go:hover{background:var(--acc)}.lg .go:disabled{opacity:.55;cursor:not-allowed;background:var(--ink)}
+.lg .spin{width:16px;height:16px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.lg .foot{text-align:center;font-size:11.5px;color:var(--mute)}
+@media(max-width:900px){.lg{grid-template-columns:1fr}.lg .left{padding:28px 24px}.lg .mods{display:none}.lg .right{padding:24px 18px}}
+`;
 
 export default function LoginPage({ onLoginSuccess }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-
-  const fillDemoAdmin = () => {
-    setUsername("admin");
-    setPassword("Admin@123");
-    setError("");
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -22,23 +77,15 @@ export default function LoginPage({ onLoginSuccess }) {
       setError("Please enter both username and password.");
       return;
     }
-
     setLoading(true);
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username: username.trim(),
-          password: password.trim(),
-        }),
+        body: JSON.stringify({ username: username.trim(), password: password.trim() }),
       });
-
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to log in.");
-      }
-
+      if (!res.ok) throw new Error(data.error || "Failed to log in.");
       onLoginSuccess(data.user);
     } catch (err) {
       setError(err.message);
@@ -47,195 +94,73 @@ export default function LoginPage({ onLoginSuccess }) {
     }
   };
 
-  const ROLES_INFO = [
-    { title: "Sales", badge: "Sales Portal", desc: "Create deals, quote pricing, log payments, request amendments.", color: "border-blue-500/30 text-blue-400 bg-blue-500/10" },
-    { title: "Admin", badge: "Admin Control", desc: "Full dealership authority, pricing & expense approvals, user creation.", color: "border-amber-500/30 text-amber-400 bg-amber-500/10" },
-    { title: "Accounts", badge: "Audit & Verify", desc: "Verify bank receipts, audit UTR/cheques, manage interest & retention.", color: "border-emerald-500/30 text-emerald-400 bg-emerald-500/10" },
-    { title: "RTO / Reg.", badge: "Compliance", desc: "Manage Insurance, TR, HSRP & Registration spend against caps.", color: "border-purple-500/30 text-purple-400 bg-purple-500/10" },
-    { title: "Claims", badge: "TML Settlement", desc: "Track OEM cash discount claims, upfront netting & claim receipts.", color: "border-orange-500/30 text-orange-400 bg-orange-500/10" },
-  ];
-
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between selection:bg-blue-600 selection:text-white">
-      {/* Top Navigation */}
-      <header className="border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-md px-6 py-4 flex items-center justify-between sticky top-0 z-20">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/20">
-            <Truck className="w-6 h-6" />
-          </div>
+    <div className="lg">
+      <style>{CSS}</style>
+
+      <section className="left">
+        <div className="flex" style={{ gap: 12 }}>
+          <div className="mark"><Truck size={20} /></div>
           <div>
-            <div className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-              DEALERSHIP ERP
-              <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/20">
-                Enterprise v2.0
-              </span>
-            </div>
-            <div className="text-xs text-slate-400">
-              Commercial Vehicle Sales & Operations Platform
-            </div>
+            <div className="brand disp">TATA PUNYA</div>
+            <div style={{ fontSize: 11.5, color: "#8F897B" }}>Commercial Vehicle Sales & Operations Platform</div>
           </div>
         </div>
 
-        <div className="hidden sm:flex items-center gap-2 text-xs text-slate-400">
-          <ShieldCheck className="w-4 h-4 text-emerald-400" />
-          <span>MongoDB Atlas Secured · RBAC Protected</span>
-        </div>
-      </header>
-
-      {/* Main Content Area */}
-      <main className="flex-1 flex items-center justify-center p-6 sm:p-10">
-        <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-          
-          {/* Left Hero / Overview Column */}
-          <div className="lg:col-span-7 space-y-6">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border border-blue-500/20 text-blue-400">
-              <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-              <span>Multi-Role Operational Authority</span>
-            </div>
-
-            <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white leading-tight">
-              One Unified Portal for <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-300 to-amber-300">
-                Sales, Accounts & Compliance
-              </span>
-            </h1>
-
-            <p className="text-sm sm:text-base text-slate-400 leading-relaxed max-w-xl">
-              Strict role-based segregation of responsibilities. Log in with your dedicated credentials to access your profile-specific dashboard with automated checks and balances.
-            </p>
-
-            {/* Profile Matrix Badges */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-              {ROLES_INFO.map((r, i) => (
-                <div
-                  key={i}
-                  className={`p-3 rounded-xl border bg-slate-900/50 backdrop-blur-sm ${r.color} transition-all hover:bg-slate-800/40`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-bold text-sm text-white">{r.title}</span>
-                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-current">
-                      {r.badge}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-400 leading-snug">{r.desc}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Right Login Card Column */}
-          <div className="lg:col-span-5">
-            <div className="relative">
-              {/* Glow Accent */}
-              <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 opacity-20 blur-xl"></div>
-
-              <div className="relative rounded-2xl border border-slate-800 bg-slate-900/90 shadow-2xl p-6 sm:p-8 space-y-6 backdrop-blur-xl">
-                <div>
-                  <h2 className="text-xl font-bold text-white tracking-tight">
-                    Authorized Sign In
-                  </h2>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Enter your username and password to access your role workspace.
-                  </p>
-                </div>
-
-                {/* Default Admin Quick-Fill Banner */}
-                <div className="bg-gradient-to-r from-blue-950/60 to-indigo-950/60 border border-blue-500/30 rounded-xl p-3.5 text-xs text-blue-200 flex items-center justify-between gap-3">
-                  <div className="space-y-0.5">
-                    <div className="font-semibold text-white flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-blue-400" />
-                      Default Admin Ready
-                    </div>
-                    <div className="text-slate-300 font-mono text-[11px]">
-                      Username: <b className="text-white">admin</b> · Pass: <b className="text-white">Admin@123</b>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={fillDemoAdmin}
-                    className="shrink-0 text-xs font-semibold px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors shadow"
-                  >
-                    Use Admin
-                  </button>
-                </div>
-
-                {error && (
-                  <div className="p-3 rounded-lg bg-red-950/50 border border-red-500/40 text-red-300 text-xs flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
-                    <span>{error}</span>
-                  </div>
-                )}
-
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                      Username
-                    </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
-                        <User className="w-4 h-4" />
-                      </div>
-                      <input
-                        type="text"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        placeholder="e.g. admin or your username"
-                        autoComplete="username"
-                        className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-slate-700 bg-slate-950 text-white placeholder-slate-500 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                      Password
-                    </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
-                        <Lock className="w-4 h-4" />
-                      </div>
-                      <input
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="••••••••"
-                        autoComplete="current-password"
-                        className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-slate-700 bg-slate-950 text-white placeholder-slate-500 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full mt-2 py-3 px-4 rounded-lg font-semibold text-sm text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 shadow-lg shadow-blue-600/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all"
-                  >
-                    {loading ? (
-                      <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-                    ) : (
-                      <>
-                        <span>Sign In to Dashboard</span>
-                        <ArrowRight className="w-4 h-4" />
-                      </>
-                    )}
-                  </button>
-                </form>
-
-                <div className="text-center pt-1">
-                  <p className="text-[11px] text-slate-500">
-                    Need new staff accounts? Log in as Admin to create and manage user credentials.
-                  </p>
-                </div>
-              </div>
-            </div>
+        <div style={{ position: "relative", zIndex: 1 }}>
+          <div className="eyebrow">Authorized Dealership Portal</div>
+          <h1 className="disp">Commercial Vehicle <em>Sales & Operations ERP</em></h1>
+          <p className="lead">Centralized platform for pricing quotation, bank audit verification, statutory RTO compliance, and deal management across the entire Tata Punya network.</p>
+          <div className="chips">
+            {BRANCH_LIST.map((b) => (
+              <span key={b.name} className="chip"><Building2 size={13} color="#D2481B" />{b.name}<small className="mono">{b.tag}</small></span>
+            ))}
           </div>
         </div>
-      </main>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-900 bg-slate-950/80 px-6 py-4 text-center text-xs text-slate-500">
-        Dealership Commercial Vehicles ERP &copy; {new Date().getFullYear()} · Multi-Profile Access Control
-      </footer>
+        <div className="mods">
+          {CORE_MODULES.map(({ title, desc, icon: Icon }) => (
+            <div key={title} className="mod">
+              <b><Icon size={16} />{title}</b>
+              <p>{desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="right">
+        <div className="status"><i />System Online</div>
+
+        <div className="card">
+          <h2 className="disp">Sign in</h2>
+          <p>Enter your credentials to access your dealership workspace.</p>
+
+          {error && <div className="err"><AlertCircle size={16} style={{ flex: "none" }} /><span>{error}</span></div>}
+
+          <form onSubmit={handleSubmit} autoComplete="off">
+            <label className="lbl">Username</label>
+            <div className="inp">
+              <User size={16} />
+              <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Enter your username" autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck="false" />
+            </div>
+
+            <label className="lbl">Password</label>
+            <div className="inp">
+              <Lock size={16} />
+              <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" autoComplete="new-password" />
+              <button type="button" className="eye" tabIndex={-1} onClick={() => setShowPassword(!showPassword)}>
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+
+            <button type="submit" className="go" disabled={loading}>
+              {loading ? <span className="spin" /> : <><span>Sign In to ERP</span><ArrowRight size={16} /></>}
+            </button>
+          </form>
+        </div>
+
+        <div className="foot">TATA PUNYA · Tata Punya ERP &copy; {new Date().getFullYear()} · All rights reserved.</div>
+      </section>
     </div>
   );
 }
