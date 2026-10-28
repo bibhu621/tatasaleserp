@@ -113,6 +113,12 @@ const CSS = `
 .erp .mhead button{background:none;border:0;color:#A9A293}
 .erp .mbody{padding:22px}
 .erp .two{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+@media print {
+  .erp { background: #fff !important; color: #000 !important; }
+  .erp .top, .erp .tabs, .no-print, button, nav { display: none !important; }
+  .erp .wrap { max-width: 100% !important; width: 100% !important; margin: 0 !important; padding: 0 !important; }
+  .print-only { display: block !important; }
+}
 `;
 
 /* ====================================================================== */
@@ -167,12 +173,12 @@ const ADMIN_ONLY_PAYMENT_MODE = "Advance Adjustment";
 const CUSTOMER_FIELDS = [["companyName", "Company Name"], ["gstNo", "GST No. (Optional)"], ["name", "Customer Name"], ["soWo", "S/o, W/o, D/o"], ["dob", "DOB / Age"], ["pan", "PAN No."], ["aadhar", "Aadhar No."], ["mobile", "Mobile"], ["address", "Address"], ["po", "P.O."], ["ps", "P.S."], ["district", "District"], ["pin", "PIN"], ["state", "State"]];
 const VEHICLE_FIELDS = [["model", "Model"], ["colour", "Colour"], ["bodyType", "Body type"], ["chassisNo", "Chassis No."], ["engineNo", "Engine No."], ["fuelType", "Fuel type"], ["dod", "DOD"], ["dse", "DSE"], ["dsm", "DSM"], ["financerName", "Financer name"], ["rto", "RTO"]];
 // "=" prefix → computed read-only row, "@" → the user-defined discounts editor
-const PRICE_ROWS = [["exshowroom", "Exshowroom price"], ["tmlDiscount", "Less: TML cash discount"], ["dealerDiscount", "Less: Dealer discount"], ["vasNfaDiscount", "Less: VAS NFA discount"], ["@otherDiscounts"], ["=netPrice", "Net price of vehicle"], ["tcs", "Add: TCS 1%"], ["tr", "Add: TR"], ["insurance", "Add: Insurance"], ["registration", "Add: Registration"], ["permit", "Add: Permit"], ["fleetedgeVltd", "Add: Fleetedge/VLTD"], ["vasAmc", "Add: VAS (AMC/FMS)"], ["bodyFabCharge", "Add: Body fabrication chg"], ["choiceHsrp", "Add: Choice No + HSRP"], ["transportation", "Add: Transportation"], ["=totalOnRoad", "Total on-road price"], ["exchangeBonus", "Less: Exchange bonus"], ["=netOnRoad", "NET ON-ROAD PRICE"]];
+const PRICE_ROWS = [["exshowroom", "Exshowroom price"], ["tmlDiscount", "Less: TML cash discount"], ["dealerDiscount", "Less: Dealer discount"], ["vasNfaDiscount", "Less: VAS NFA discount"], ["@otherDiscounts"], ["=netPrice", "Net price of vehicle"], ["=tcs", "Add: TCS 1% (Auto on Net > ₹10L)"], ["tr", "Add: TR"], ["insurance", "Add: Insurance"], ["registration", "Add: Registration"], ["permit", "Add: Permit"], ["fleetedgeVltd", "Add: Fleetedge/VLTD"], ["vasAmc", "Add: VAS (AMC/FMS)"], ["bodyFabCharge", "Add: Body fabrication chg"], ["choiceHsrp", "Add: Choice No + HSRP"], ["transportation", "Add: Transportation"], ["=totalOnRoad", "Total on-road price"], ["exchangeBonus", "Less: Exchange bonus"], ["=netOnRoad", "NET ON-ROAD PRICE"]];
 const OFFICE_FIELDS = [["remarks", "Remarks"], ["bodyFabName", "Body fab. name"], ["interestCost", "Interest cost"], ["retentionVehicle", "Retention on vehicle"], ["retentionBody", "Retention on body"], ["retentionVas", "Retention on VAS"], ["retentionOthers", "Retention on others"]];
 const blank = list => Object.fromEntries(list.map(([k]) => [k, ""]));
 const emptyCustomer = () => blank(CUSTOMER_FIELDS);
 const emptyVehicle = () => blank(VEHICLE_FIELDS);
-const emptyPricing = () => ({ ...blank(PRICE_ROWS.filter(r => !/^[=@]/.test(r[0]))), otherDiscounts: [] });
+const emptyPricing = () => ({ ...blank(PRICE_ROWS.filter(r => !/^[=@]/.test(r[0]))), otherDiscounts: [], tcs: 0 });
 const emptyOfficeUse = () => blank(OFFICE_FIELDS);
 
 const stamp = () => new Date().toISOString();
@@ -219,16 +225,17 @@ const describeChanges = ch => ch.map(c => `${c.section}.${c.field}: ${describe(c
 const paymentStatus = e => e.status || (e.verified ? "verified" : "pending");
 
 function calc(deal) {
-  const p = deal.pricing;
+  const p = deal?.pricing || {};
   const otherDiscountsTotal = sum(p.otherDiscounts || [], o => o.amount);
   const netPrice = num(p.exshowroom) - num(p.tmlDiscount) - num(p.dealerDiscount) - num(p.vasNfaDiscount) - otherDiscountsTotal;
-  const adds = sum(["tcs", "tr", "insurance", "registration", "permit", "fleetedgeVltd", "vasAmc", "bodyFabCharge", "choiceHsrp", "transportation"], k => p[k]);
+  const tcs = netPrice > 1000000 ? Math.round(netPrice * 0.01) : 0;
+  const adds = tcs + sum(["tr", "insurance", "registration", "permit", "fleetedgeVltd", "vasAmc", "bodyFabCharge", "choiceHsrp", "transportation"], k => p[k]);
   const totalOnRoad = netPrice + adds;
   const netOnRoad = totalOnRoad - num(p.exchangeBonus);
-  const totalCollected = sum((deal.paymentLog || []).filter(e => paymentStatus(e) !== "rejected"), e => e.amount);
-  const adj = s => sum((deal.adjustments || []).filter(a => a.status === s), a => a.amount);
+  const totalCollected = sum((deal?.paymentLog || []).filter(e => paymentStatus(e) !== "rejected"), e => e.amount);
+  const adj = s => sum((deal?.adjustments || []).filter(a => a.status === s), a => a.amount);
   const approvedAdjustments = adj("approved"), pendingAdjustments = adj("pending");
-  return { netPrice, totalOnRoad, netOnRoad, totalCollected, approvedAdjustments, pendingAdjustments, balance: netOnRoad - totalCollected - approvedAdjustments, otherDiscountsTotal };
+  return { netPrice, tcs, totalOnRoad, netOnRoad, totalCollected, approvedAdjustments, pendingAdjustments, balance: netOnRoad - totalCollected - approvedAdjustments, otherDiscountsTotal };
 }
 const expenseCap = (deal, cat) => num(deal.pricing[EXPENSE_CATEGORIES.find(c => c.id === cat)?.pricingField]);
 const postedSpend = (expenses, cat, excludeId = null) => sum((expenses || []).filter(e => e.category === cat && e.status === "posted" && e.id !== excludeId), e => e.amount);
@@ -378,7 +385,6 @@ function OtherDiscountsEditor({ value, onChange, readOnly, onCommit }) {
 /* ====================================================================== */
 
 function DealEditor({ deal: d, deals, session, onUpdate, onBack, onDelete }) {
-  const c = calc(d);
   const { role } = session;
   const isSales = role === "sales", isAdmin = role === "admin", isAccounts = role === "accounts", isRto = role === "rto";
   const chassis = d.vehicle.chassisNo;
@@ -401,6 +407,9 @@ function DealEditor({ deal: d, deals, session, onUpdate, onBack, onDelete }) {
   const [coreDraft, setCoreDraft] = useState(snapshot);
   const coreDirty = gated && JSON.stringify(coreDraft) !== JSON.stringify(snapshot());
 
+  const activePricing = coreDraft?.pricing || d.pricing;
+  const c = calc({ ...d, pricing: activePricing });
+
   useEffect(() => {
     setCoreDraft(snapshot());
     setEditMode(false);
@@ -411,18 +420,43 @@ function DealEditor({ deal: d, deals, session, onUpdate, onBack, onDelete }) {
   const set = (section, field, value) => onUpdate(prev => ({ ...prev, [section]: { ...prev[section], [field]: value } }));
   const commitFieldChange = (section, field, o, n) => { if (JSON.stringify(o) !== JSON.stringify(n)) withLog(p => p, `Changed ${section}.${field}: ${describe(o)} → ${describe(n)}`); };
   const editCore = (section, field, value) => {
+    if (section === "pricing") {
+      setCoreDraft(prev => {
+        const nextPricing = { ...prev.pricing, [field]: value };
+        const otherTot = sum(nextPricing.otherDiscounts || [], o => o.amount);
+        const net = num(nextPricing.exshowroom) - num(nextPricing.tmlDiscount) - num(nextPricing.dealerDiscount) - num(nextPricing.vasNfaDiscount) - otherTot;
+        nextPricing.tcs = net > 1000000 ? Math.round(net * 0.01) : 0;
+        return { ...prev, pricing: nextPricing };
+      });
+      if (!gated) {
+        onUpdate(prev => {
+          const nextPricing = { ...prev.pricing, [field]: value };
+          const otherTot = sum(nextPricing.otherDiscounts || [], o => o.amount);
+          const net = num(nextPricing.exshowroom) - num(nextPricing.tmlDiscount) - num(nextPricing.dealerDiscount) - num(nextPricing.vasNfaDiscount) - otherTot;
+          nextPricing.tcs = net > 1000000 ? Math.round(net * 0.01) : 0;
+          return { ...prev, pricing: nextPricing };
+        });
+      }
+      return;
+    }
     setCoreDraft(prev => ({ ...prev, [section]: { ...prev[section], [field]: value } }));
     if (!gated) set(section, field, value);
   };
   const editCoreCommit = (section, field, o, n) => { if (!gated) commitFieldChange(section, field, o, n); };
   const discardEdits = () => { setCoreDraft(snapshot()); setEditMode(false); };
   const saveAdminEdits = () => {
-    withLog(p => ({
-      ...p,
-      customer: { ...(p.customer || {}), ...(coreDraft.customer || {}) },
-      vehicle: { ...(p.vehicle || {}), ...(coreDraft.vehicle || {}) },
-      pricing: { ...(p.pricing || {}), ...(coreDraft.pricing || {}) },
-    }), "Admin updated deal fields directly");
+    withLog(p => {
+      const nextPricing = { ...(p.pricing || {}), ...(coreDraft.pricing || {}) };
+      const otherTot = sum(nextPricing.otherDiscounts || [], o => o.amount);
+      const net = num(nextPricing.exshowroom) - num(nextPricing.tmlDiscount) - num(nextPricing.dealerDiscount) - num(nextPricing.vasNfaDiscount) - otherTot;
+      nextPricing.tcs = net > 1000000 ? Math.round(net * 0.01) : 0;
+      return {
+        ...p,
+        customer: { ...(p.customer || {}), ...(coreDraft.customer || {}) },
+        vehicle: { ...(p.vehicle || {}), ...(coreDraft.vehicle || {}) },
+        pricing: nextPricing,
+      };
+    }, "Admin updated deal fields directly");
     setEditMode(false);
   };
 

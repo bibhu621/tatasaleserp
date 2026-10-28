@@ -27,6 +27,8 @@ import {
   Layers,
   Sparkles,
   FileSpreadsheet,
+  Printer,
+  ShieldCheck,
 } from "lucide-react";
 import { isDealForUser, filterDealsForUser } from "@/lib/dealUtils";
 
@@ -84,8 +86,11 @@ function calcDeal(deal) {
     num(p.dealerDiscount) -
     num(p.vasNfaDiscount) -
     otherDiscountsTotal;
+
+  // Auto-calculated TCS: 1% on net price only if net price > 10,00,000 (10 Lakhs)
+  const tcs = netPrice > 1000000 ? Math.round(netPrice * 0.01) : 0;
+
   const adds = [
-    "tcs",
     "tr",
     "insurance",
     "registration",
@@ -95,7 +100,8 @@ function calcDeal(deal) {
     "bodyFabCharge",
     "choiceHsrp",
     "transportation",
-  ].reduce((s, k) => s + num(p[k]), 0);
+  ].reduce((s, k) => s + num(p[k]), tcs);
+
   const totalOnRoad = netPrice + adds;
   const netOnRoad = totalOnRoad - num(p.exchangeBonus);
 
@@ -115,6 +121,7 @@ function calcDeal(deal) {
 
   return {
     netPrice,
+    tcs,
     totalOnRoad,
     netOnRoad,
     totalCollected,
@@ -196,6 +203,7 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
   const [branchFilter, setBranchFilter] = useState("all");
   const [paymentModeFilter, setPaymentModeFilter] = useState("all");
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("all"); // 'all' | 'dues' | 'settled' | 'partial'
+  const [approvalStatusFilter, setApprovalStatusFilter] = useState("all"); // 'all' | 'approved' | 'pending' | 'rejected'
   const [searchQuery, setSearchQuery] = useState("");
 
   // Sub-tab view state
@@ -391,7 +399,29 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
         return false;
       }
 
-      // 6. Search Query (Customer name, Company, Mobile, Chassis, Deal ID, UTR / Cheque Ref)
+      // 6. Approval / Deal Status Filter (3 to choose options: Approved, Pending, Rejected)
+      if (approvalStatusFilter === "approved") {
+        const isApp =
+          d.status === "approved" ||
+          d.status === "delivered" ||
+          d.status === "closed" ||
+          d.approval?.status === "approved";
+        if (!isApp) return false;
+      } else if (approvalStatusFilter === "pending") {
+        const isPend =
+          d.status === "pending_approval" ||
+          d.status === "draft" ||
+          d.approval?.status === "pending_approval" ||
+          d.approval?.status === "draft" ||
+          d.approval?.status === "pending";
+        if (!isPend) return false;
+      } else if (approvalStatusFilter === "rejected") {
+        const isRej =
+          d.status === "rejected" || d.approval?.status === "rejected";
+        if (!isRej) return false;
+      }
+
+      // 7. Search Query (Customer name, Company, Mobile, Chassis, Deal ID, UTR / Cheque Ref)
       if (q) {
         const utrReferences = (d.paymentLog || [])
           .map((p) => p.reference || "")
@@ -430,6 +460,7 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
     branchFilter,
     paymentModeFilter,
     paymentStatusFilter,
+    approvalStatusFilter,
     searchQuery,
   ]);
 
@@ -605,6 +636,7 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
     branchFilter !== "all" ||
     paymentModeFilter !== "all" ||
     paymentStatusFilter !== "all" ||
+    approvalStatusFilter !== "all" ||
     searchQuery.trim() !== "" ||
     fromDate !== "" ||
     toDate !== "";
@@ -617,6 +649,7 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
     setBranchFilter("all");
     setPaymentModeFilter("all");
     setPaymentStatusFilter("all");
+    setApprovalStatusFilter("all");
     setSearchQuery("");
   };
 
@@ -629,55 +662,112 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
       const XLSX = await import("xlsx");
       const wb = XLSX.utils.book_new();
 
-      // Sheet 1: Sales & Dues Ledger
+      // Sheet 1: Comprehensive Sales & Dues Ledger (All Fields Included)
       const ledgerRows = filteredDeals.map(({ d, c, dt, salesman, branchNorm }) => {
         const validPayments = (d.paymentLog || []).filter(
           (p) => paymentStatus(p) !== "rejected"
         );
-        const modes = validPayments.map((p) => p.mode).join("; ");
+        const modes = validPayments.map((p) => p.mode).filter(Boolean).join("; ");
         const refs = validPayments
           .map((p) => (p.reference ? `${p.mode}: ${p.reference}` : p.mode))
+          .filter(Boolean)
+          .join("; ");
+        const paymentDates = validPayments
+          .map((p) => p.date)
+          .filter(Boolean)
           .join("; ");
 
+        const otherDiscountsStr = (d.pricing?.otherDiscounts || [])
+          .map((o) => `${o.label || "Discount"}: ₹${o.amount}`)
+          .join("; ");
+
+        const cust = d.customer || {};
+        const veh = d.vehicle || {};
+        const pr = d.pricing || {};
+        const off = d.officeUse || {};
+        const app = d.approval || {};
+        const expCl = d.expenseClosed || {};
+
         return {
-          "Deal ID": d.id,
-          "Date": formatDisplayDate(dt),
-          "Dealership Branch": branchNorm,
-          "Salesman (DSE)": salesman,
-          "Customer Name": d.customer?.name || "",
-          "Company Name": d.customer?.companyName || "",
-          "Mobile": d.customer?.mobile || "",
-          "GST Number": d.customer?.gstNo || "",
-          "Model": d.vehicle?.model || "",
-          "Chassis Number": d.vehicle?.chassisNo || "",
-          "Deal Status": STATUS_META[d.status]?.label || d.status,
-          "Net Order Value (INR)": c.netOnRoad,
-          "Total Collected (INR)": c.totalCollected,
-          "Outstanding Dues (INR)": c.outstandingDue,
+          "Deal ID": d.id || "",
+          "Deal Date": formatDisplayDate(dt),
+          "Dealership Branch": branchNorm || "Sasaram",
+          "Deal Status": STATUS_META[d.status]?.label || d.status || "",
+          "Approval Status": app.status || d.status || "",
+          "Approved / Actioned By": app.by || "",
+          "Approval Date": app.at || "",
+          "Approval Remarks": app.remarks || "",
+          "Created By": d.createdBy || "",
+          "Created By Username": d.createdByUsername || "",
+          "Salesman (DSE)": salesman || veh.dse || d.createdBy || "Unassigned",
+          "DSM": veh.dsm || "",
+          "Customer Name": cust.name || "",
+          "Company Name": cust.companyName || "",
+          "S/o, W/o, D/o": cust.soWo || "",
+          "DOB / Age": cust.dob || "",
+          "Mobile": cust.mobile || "",
+          "PAN No": cust.pan || "",
+          "Aadhar No": cust.aadhar || "",
+          "GST No": cust.gstNo || "",
+          "Address": cust.address || "",
+          "P.O.": cust.po || "",
+          "P.S.": cust.ps || "",
+          "District": cust.district || "",
+          "PIN": cust.pin || "",
+          "State": cust.state || "",
+          "Model": veh.model || "",
+          "Colour": veh.colour || "",
+          "Body Type": veh.bodyType || "",
+          "Chassis No": veh.chassisNo || "",
+          "Engine No": veh.engineNo || "",
+          "Fuel Type": veh.fuelType || "",
+          "DOD": veh.dod || "",
+          "Financer Name": veh.financerName || "",
+          "RTO": veh.rto || "",
+          "Exshowroom Price (INR)": num(pr.exshowroom),
+          "TML Cash Discount (INR)": num(pr.tmlDiscount),
+          "Dealer Discount (INR)": num(pr.dealerDiscount),
+          "VAS NFA Discount (INR)": num(pr.vasNfaDiscount),
+          "Other Discounts Breakdown": otherDiscountsStr || "",
+          "Other Discounts Total (INR)": c.otherDiscountsTotal || 0,
+          "Net Price of Vehicle (INR)": c.netPrice || 0,
+          "TCS 1% (INR)": c.tcs || 0,
+          "TR Charge (INR)": num(pr.tr),
+          "Insurance (INR)": num(pr.insurance),
+          "Registration (INR)": num(pr.registration),
+          "Permit (INR)": num(pr.permit),
+          "Fleetedge / VLTD (INR)": num(pr.fleetedgeVltd),
+          "VAS (AMC/FMS) (INR)": num(pr.vasAmc),
+          "Body Fabrication Charge (INR)": num(pr.bodyFabCharge),
+          "Choice No + HSRP (INR)": num(pr.choiceHsrp),
+          "Transportation (INR)": num(pr.transportation),
+          "Total On-Road Price (INR)": c.totalOnRoad || 0,
+          "Exchange Bonus (INR)": num(pr.exchangeBonus),
+          "NET ON-ROAD PRICE (INR)": c.netOnRoad || 0,
+          "Total Collected (INR)": c.totalCollected || 0,
+          "Outstanding Due (INR)": c.outstandingDue || 0,
+          "Approved Adjustments (INR)": c.approvedAdjustments || 0,
+          "Pending Adjustments (INR)": c.pendingAdjustments || 0,
+          "Net Balance (INR)": c.balance || 0,
           "Payment Modes": modes || "None",
-          "Payment UTR / Cheque Refs": refs || "None",
+          "Payment UTR / Cheque Ref": refs || "None",
+          "Payment Dates": paymentDates || "None",
+          "Payment Transactions Count": validPayments.length,
+          "Office Remarks": off.remarks || "",
+          "Body Fab Name": off.bodyFabName || "",
+          "Interest Cost (INR)": num(off.interestCost),
+          "Retention on Vehicle (INR)": num(off.retentionVehicle),
+          "Retention on Body (INR)": num(off.retentionBody),
+          "Retention on VAS (INR)": num(off.retentionVas),
+          "Retention on Others (INR)": num(off.retentionOthers),
+          "Insurance Expense Closed": expCl.insurance ? "Yes" : "No",
+          "HSRP Expense Closed": expCl.hsrp ? "Yes" : "No",
+          "TR Expense Closed": expCl.tr ? "Yes" : "No",
+          "Registration Expense Closed": expCl.registration ? "Yes" : "No",
         };
       });
 
       const wsLedger = XLSX.utils.json_to_sheet(ledgerRows);
-      wsLedger["!cols"] = [
-        { wch: 14 },
-        { wch: 12 },
-        { wch: 15 },
-        { wch: 20 },
-        { wch: 22 },
-        { wch: 24 },
-        { wch: 14 },
-        { wch: 16 },
-        { wch: 18 },
-        { wch: 20 },
-        { wch: 20 },
-        { wch: 18 },
-        { wch: 16 },
-        { wch: 18 },
-        { wch: 24 },
-        { wch: 30 },
-      ];
       XLSX.utils.book_append_sheet(wb, wsLedger, isSales ? "My Sales & Dues Ledger" : "Sales & Dues Ledger");
 
       // Sheet 2: Salesman Performance (Admin Level Report Only)
@@ -797,58 +887,195 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
       console.warn("Client-side Excel export failed, falling back to server route:", err);
       window.location.href = `/api/reports/export?branch=${encodeURIComponent(
         branchFilter
-      )}&salesman=${encodeURIComponent(salesmanFilter)}`;
+      )}&salesman=${encodeURIComponent(salesmanFilter)}&approvalStatus=${encodeURIComponent(approvalStatusFilter)}`;
     } finally {
       setIsExporting(false);
     }
   };
 
-  // CSV Export for Admin
+  // CSV Export with All Fields
   const exportToCSV = () => {
     const headers = [
       "Deal ID",
-      "Date",
-      "Branch",
-      "Salesman",
-      "Customer Name",
-      "Company",
-      "Mobile",
-      "Chassis No",
-      "Model",
+      "Deal Date",
+      "Dealership Branch",
       "Deal Status",
-      "Net Order Value (INR)",
+      "Approval Status",
+      "Approved / Actioned By",
+      "Approval Date",
+      "Approval Remarks",
+      "Created By",
+      "Created By Username",
+      "Salesman (DSE)",
+      "DSM",
+      "Customer Name",
+      "Company Name",
+      "S/o, W/o, D/o",
+      "DOB / Age",
+      "Mobile",
+      "PAN No",
+      "Aadhar No",
+      "GST No",
+      "Address",
+      "P.O.",
+      "P.S.",
+      "District",
+      "PIN",
+      "State",
+      "Model",
+      "Colour",
+      "Body Type",
+      "Chassis No",
+      "Engine No",
+      "Fuel Type",
+      "DOD",
+      "Financer Name",
+      "RTO",
+      "Exshowroom Price (INR)",
+      "TML Cash Discount (INR)",
+      "Dealer Discount (INR)",
+      "VAS NFA Discount (INR)",
+      "Other Discounts Breakdown",
+      "Other Discounts Total (INR)",
+      "Net Price of Vehicle (INR)",
+      "TCS 1% (INR)",
+      "TR Charge (INR)",
+      "Insurance (INR)",
+      "Registration (INR)",
+      "Permit (INR)",
+      "Fleetedge / VLTD (INR)",
+      "VAS (AMC/FMS) (INR)",
+      "Body Fabrication Charge (INR)",
+      "Choice No + HSRP (INR)",
+      "Transportation (INR)",
+      "Total On-Road Price (INR)",
+      "Exchange Bonus (INR)",
+      "NET ON-ROAD PRICE (INR)",
       "Total Collected (INR)",
-      "Outstanding Dues (INR)",
+      "Outstanding Due (INR)",
+      "Approved Adjustments (INR)",
+      "Pending Adjustments (INR)",
+      "Net Balance (INR)",
       "Payment Modes",
-      "Payment UTR / Cheque Ref Numbers",
+      "Payment UTR / Cheque Ref",
+      "Payment Dates",
+      "Payment Transactions Count",
+      "Office Remarks",
+      "Body Fab Name",
+      "Interest Cost (INR)",
+      "Retention on Vehicle (INR)",
+      "Retention on Body (INR)",
+      "Retention on VAS (INR)",
+      "Retention on Others (INR)",
+      "Insurance Expense Closed",
+      "HSRP Expense Closed",
+      "TR Expense Closed",
+      "Registration Expense Closed",
     ];
 
+    const clean = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+
     const rows = filteredDeals.map(({ d, c, dt, salesman, branchNorm }) => {
-      const modes = (d.paymentLog || [])
-        .map((p) => p.mode)
+      const validPayments = (d.paymentLog || []).filter(
+        (p) => paymentStatus(p) !== "rejected"
+      );
+      const modes = validPayments.map((p) => p.mode).filter(Boolean).join("; ");
+      const refs = validPayments
+        .map((p) => (p.reference ? `${p.mode}: ${p.reference}` : p.mode))
         .filter(Boolean)
         .join("; ");
-      const refs = (d.paymentLog || [])
-        .map((p) => p.reference)
+      const paymentDates = validPayments
+        .map((p) => p.date)
         .filter(Boolean)
         .join("; ");
 
+      const otherDiscountsStr = (d.pricing?.otherDiscounts || [])
+        .map((o) => `${o.label || "Discount"}: ₹${o.amount}`)
+        .join("; ");
+
+      const cust = d.customer || {};
+      const veh = d.vehicle || {};
+      const pr = d.pricing || {};
+      const off = d.officeUse || {};
+      const app = d.approval || {};
+      const expCl = d.expenseClosed || {};
+
       return [
-        `"${d.id}"`,
-        `"${formatDisplayDate(dt)}"`,
-        `"${branchNorm}"`,
-        `"${salesman}"`,
-        `"${(d.customer?.name || "").replace(/"/g, '""')}"`,
-        `"${(d.customer?.companyName || "").replace(/"/g, '""')}"`,
-        `"${d.customer?.mobile || ""}"`,
-        `"${d.vehicle?.chassisNo || ""}"`,
-        `"${d.vehicle?.model || ""}"`,
-        `"${STATUS_META[d.status]?.label || d.status}"`,
-        c.netOnRoad,
-        c.totalCollected,
-        c.outstandingDue,
-        `"${modes}"`,
-        `"${refs}"`,
+        clean(d.id),
+        clean(formatDisplayDate(dt)),
+        clean(branchNorm || "Sasaram"),
+        clean(STATUS_META[d.status]?.label || d.status),
+        clean(app.status || d.status),
+        clean(app.by),
+        clean(app.at),
+        clean(app.remarks),
+        clean(d.createdBy),
+        clean(d.createdByUsername),
+        clean(salesman || veh.dse || d.createdBy || "Unassigned"),
+        clean(veh.dsm),
+        clean(cust.name),
+        clean(cust.companyName),
+        clean(cust.soWo),
+        clean(cust.dob),
+        clean(cust.mobile),
+        clean(cust.pan),
+        clean(cust.aadhar),
+        clean(cust.gstNo),
+        clean(cust.address),
+        clean(cust.po),
+        clean(cust.ps),
+        clean(cust.district),
+        clean(cust.pin),
+        clean(cust.state),
+        clean(veh.model),
+        clean(veh.colour),
+        clean(veh.bodyType),
+        clean(veh.chassisNo),
+        clean(veh.engineNo),
+        clean(veh.fuelType),
+        clean(veh.dod),
+        clean(veh.financerName),
+        clean(veh.rto),
+        num(pr.exshowroom),
+        num(pr.tmlDiscount),
+        num(pr.dealerDiscount),
+        num(pr.vasNfaDiscount),
+        clean(otherDiscountsStr),
+        c.otherDiscountsTotal || 0,
+        c.netPrice || 0,
+        c.tcs || 0,
+        num(pr.tr),
+        num(pr.insurance),
+        num(pr.registration),
+        num(pr.permit),
+        num(pr.fleetedgeVltd),
+        num(pr.vasAmc),
+        num(pr.bodyFabCharge),
+        num(pr.choiceHsrp),
+        num(pr.transportation),
+        c.totalOnRoad || 0,
+        num(pr.exchangeBonus),
+        c.netOnRoad || 0,
+        c.totalCollected || 0,
+        c.outstandingDue || 0,
+        c.approvedAdjustments || 0,
+        c.pendingAdjustments || 0,
+        c.balance || 0,
+        clean(modes || "None"),
+        clean(refs || "None"),
+        clean(paymentDates || "None"),
+        validPayments.length,
+        clean(off.remarks),
+        clean(off.bodyFabName),
+        num(off.interestCost),
+        num(off.retentionVehicle),
+        num(off.retentionBody),
+        num(off.retentionVas),
+        num(off.retentionOthers),
+        clean(expCl.insurance ? "Yes" : "No"),
+        clean(expCl.hsrp ? "Yes" : "No"),
+        clean(expCl.tr ? "Yes" : "No"),
+        clean(expCl.registration ? "Yes" : "No"),
       ].join(",");
     });
 
@@ -873,9 +1100,51 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* ---------------------------------------------------------------- */}
+      {/* 0. Printable Report Header (Visible ONLY on print)                */}
+      {/* ---------------------------------------------------------------- */}
+      <div className="hidden print:block mb-4 pb-3 border-b-2 border-slate-900 print-only">
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-xl font-black text-slate-900 tracking-tight">
+              TATA PUNYA — DEALERSHIP OPERATIONS ERP
+            </h1>
+            <p className="text-xs text-slate-600 font-medium">
+              Commercial & Passenger Vehicles Sales & Accounts Ledger · Bihar Dealership Network
+            </p>
+            <div className="text-sm font-bold text-blue-900 mt-1 uppercase tracking-wide">
+              {activeView === "ledger"
+                ? isSales
+                  ? "My Sales & Payment Ledger Report"
+                  : "Consolidated Dealership Sales & Payment Ledger"
+                : activeView === "timeline"
+                ? "Periodic Sales & Ongoing Collections Timeline Report"
+                : "Sales Executive Performance & Leaderboard Report"}
+            </div>
+          </div>
+          <div className="text-right text-[10px] text-slate-600 leading-tight">
+            <div><b>Printed On:</b> {new Date().toLocaleString("en-IN")}</div>
+            <div><b>Generated By:</b> {session?.name || "User"} ({session?.role || "Staff"})</div>
+            <div><b>Branch:</b> {branchFilter === "all" ? "All Branches" : branchFilter}</div>
+            <div><b>Timeframe:</b> {timePreset}</div>
+            {approvalStatusFilter !== "all" && (
+              <div><b>Approval Status:</b> {approvalStatusFilter.toUpperCase()}</div>
+            )}
+          </div>
+        </div>
+
+        {/* Print Summary Metrics Bar */}
+        <div className="grid grid-cols-4 gap-2 mt-3 p-2 bg-slate-100 border border-slate-300 rounded text-xs text-slate-800">
+          <div><span className="text-slate-500">Total Filtered Deals:</span> <b>{filteredDeals.length}</b></div>
+          <div><span className="text-slate-500">Net Order Value:</span> <b>{inr(metrics.totalNet)}</b></div>
+          <div><span className="text-slate-500">Total Collected:</span> <b>{inr(metrics.totalCollected)}</b></div>
+          <div><span className="text-slate-500">Outstanding Dues:</span> <b>{inr(metrics.totalDue)}</b></div>
+        </div>
+      </div>
+
+      {/* ---------------------------------------------------------------- */}
       {/* 1. Executive Top Header Banner                                   */}
       {/* ---------------------------------------------------------------- */}
-      <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 rounded-xl p-5 text-white shadow-md border border-slate-800">
+      <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 rounded-xl p-5 text-white shadow-md border border-slate-800 no-print">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1.5 flex-wrap">
@@ -916,6 +1185,15 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-md transition-all active:scale-95"
+              title="Print current report view"
+            >
+              <Printer className="w-4 h-4 text-blue-100" />
+              Print Report
+            </button>
             <button
               type="button"
               onClick={downloadExcel}
@@ -1023,7 +1301,7 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
       {/* ---------------------------------------------------------------- */}
       {/* 2. Executive Multi-Filter Bar                                     */}
       {/* ---------------------------------------------------------------- */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3">
+      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3 no-print">
         {/* Time Period Buttons */}
         <div className="flex items-center gap-1.5 flex-wrap">
           <span className="text-xs font-bold text-slate-600 uppercase tracking-wider mr-1 flex items-center gap-1">
@@ -1077,7 +1355,7 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
         </div>
 
         {/* Filter Dropdowns Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-2 border-t border-slate-100">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 pt-2 border-t border-slate-100">
           {/* Salesman Filter */}
           <div>
             <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1 flex items-center gap-1">
@@ -1122,6 +1400,23 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
                   {b}
                 </option>
               ))}
+            </select>
+          </div>
+
+          {/* Approval / Deal Status Filter */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1 flex items-center gap-1">
+              <ShieldCheck className="w-3 h-3 text-blue-600" /> Approval / Status
+            </label>
+            <select
+              value={approvalStatusFilter}
+              onChange={(e) => setApprovalStatusFilter(e.target.value)}
+              className="w-full text-xs border border-slate-300 rounded-md px-2.5 py-1.5 bg-white font-medium focus:ring-2 focus:ring-blue-600/30 focus:border-blue-600 outline-none"
+            >
+              <option value="all">All Statuses</option>
+              <option value="approved">✅ Approved Deals</option>
+              <option value="pending">⏳ Pending Approval</option>
+              <option value="rejected">❌ Rejected Deals</option>
             </select>
           </div>
 
@@ -1389,7 +1684,7 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
       {/* ---------------------------------------------------------------- */}
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
         {/* Navigation Tabs */}
-        <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/80 px-4 pt-2 overflow-x-auto">
+        <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/80 px-4 pt-2 overflow-x-auto no-print">
           <div className="flex space-x-2">
             {[
               {
@@ -1467,11 +1762,22 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
           {activeView === "ledger" && (
             <div className="space-y-3">
               <div className="flex items-center justify-between text-xs text-slate-500 px-1">
-                <span>
-                  Showing <b>{filteredDeals.length}</b> records matching filters
-                </span>
+                <div className="flex items-center gap-3">
+                  <span>
+                    Showing <b>{filteredDeals.length}</b> records matching filters
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="no-print inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 transition-colors"
+                    title="Print Ledger Table"
+                  >
+                    <Printer className="w-3.5 h-3.5 text-slate-600" />
+                    Print Table
+                  </button>
+                </div>
                 {isAdmin && (
-                  <span className="text-[11px] text-blue-700 font-medium">
+                  <span className="text-[11px] text-blue-700 font-medium no-print">
                     Click "View Deal" to inspect or edit any transaction.
                   </span>
                 )}
@@ -1496,7 +1802,7 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
                         <th className="py-2.5 px-3 text-right">Outstanding Due</th>
                         <th className="py-2.5 px-3">Payment Modes & UTR Ref</th>
                         <th className="py-2.5 px-3 text-center">Status</th>
-                        <th className="py-2.5 px-3 text-center">Action</th>
+                        <th className="py-2.5 px-3 text-center no-print print:hidden">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -1602,7 +1908,7 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
                             </td>
 
                             {/* Action Button */}
-                            <td className="py-2.5 px-3 text-center">
+                            <td className="py-2.5 px-3 text-center no-print print:hidden">
                               {onOpen && (
                                 <button
                                   type="button"
@@ -1627,9 +1933,20 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
           {/* VIEW 2: Ongoing Timeline Grouped Details */}
           {activeView === "timeline" && (
             <div className="space-y-3">
-              <div className="text-xs text-slate-500">
-                Tracking ongoing sales grouped <b>{timelineGrouping}-wise</b>. Showing{" "}
-                <b>{timelineData.length}</b> time periods.
+              <div className="flex items-center justify-between text-xs text-slate-500">
+                <span>
+                  Tracking ongoing sales grouped <b>{timelineGrouping}-wise</b>. Showing{" "}
+                  <b>{timelineData.length}</b> time periods.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="no-print inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 transition-colors"
+                  title="Print Timeline Report"
+                >
+                  <Printer className="w-3.5 h-3.5 text-slate-600" />
+                  Print Timeline
+                </button>
               </div>
 
               {timelineData.length === 0 ? (
@@ -1715,9 +2032,19 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
           {/* VIEW 3: Salesman Performance Leaderboard (Admin Level Report Only) */}
           {isAdmin && activeView === "salesmen" && (
             <div className="space-y-3">
-              <div className="text-xs text-slate-500">
-                Track and compare salesman deal closures, revenue contribution, and collection
-                efficiency.
+              <div className="flex items-center justify-between text-xs text-slate-500">
+                <span>
+                  Track and compare salesman deal closures, revenue contribution, and collection efficiency.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="no-print inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 transition-colors"
+                  title="Print Salesman Leaderboard Report"
+                >
+                  <Printer className="w-3.5 h-3.5 text-slate-600" />
+                  Print Leaderboard
+                </button>
               </div>
 
               {salesmanLeaderboard.length === 0 ? (
@@ -1737,7 +2064,7 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
                         <th className="py-2.5 px-3 text-right">Amount Collected</th>
                         <th className="py-2.5 px-3 text-right">Outstanding Dues</th>
                         <th className="py-2.5 px-3 text-center">Collection %</th>
-                        <th className="py-2.5 px-3 text-center">Filter Salesman</th>
+                        <th className="py-2.5 px-3 text-center no-print print:hidden">Filter Salesman</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -1788,7 +2115,7 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
                                 {eff}%
                               </span>
                             </td>
-                            <td className="py-2.5 px-3 text-center">
+                            <td className="py-2.5 px-3 text-center no-print print:hidden">
                               <button
                                 type="button"
                                 onClick={() =>
