@@ -1,10 +1,10 @@
 "use client";
-
 import React, { useState, useEffect, useRef } from "react";
-import { Truck, ClipboardCheck, Wallet, BarChart3, Plus, ChevronRight, ChevronDown, CheckCircle2, XCircle, Clock, PackageCheck, ArrowLeft, LogOut, AlertTriangle, FileText, Filter, RefreshCw, Search, ShieldCheck, Lock, Users } from "lucide-react";
+import { Truck, ClipboardCheck, Wallet, BarChart3, Plus, ChevronRight, ChevronDown, CheckCircle2, XCircle, Clock, PackageCheck, ArrowLeft, LogOut, AlertTriangle, FileText, Filter, RefreshCw, Search, ShieldCheck, Lock, Users, Printer } from "lucide-react";
 import LoginPage from "@/components/LoginPage";
 import UserManagement from "@/components/UserManagement";
 import ReportsDashboard from "@/components/ReportsDashboard";
+import DealPrintSheet from "@/components/DealPrintSheet";
 import { isDealForUser, filterDealsForUser } from "@/lib/dealUtils";
 
 /* ====================================================================== */
@@ -599,14 +599,22 @@ function DealEditor({ deal: d, deals, session, onUpdate, onBack, onDelete }) {
   const balanceDue = c.balance > 0;
 
   return (
-    <div className="stack" style={{ paddingBottom: 90 }}>
-      <div className="flex between wrapf">
-        <button className="lnk mu flex" onClick={onBack}><ArrowLeft size={15} /> All deals</button>
-        <div className="flex">
-          {chassis && <span className="tag mono" style={{ padding: "4px 9px" }}>Chassis: {chassis}</span>}
-          <StatusBadge status={d.status} />
+    <>
+      <DealPrintSheet deal={d} totals={calc(d)} showOffice={isAdmin || isAccounts} session={session} />
+      <div className="stack no-print" style={{ paddingBottom: 90 }}>
+        <div className="flex between wrapf">
+          <button className="lnk mu flex" onClick={onBack}><ArrowLeft size={15} /> All deals</button>
+          <div className="flex">
+            <button className="btn pri xs" onClick={() => {
+              const prev = document.title;
+              document.title = `Term Sheet - ${formatParty(d.customer)} - ${d.id}`;
+              window.addEventListener("afterprint", () => { document.title = prev; }, { once: true });
+              window.print();
+            }}><Printer size={14} /> Print term sheet</button>
+            {chassis && <span className="tag mono" style={{ padding: "4px 9px" }}>Chassis: {chassis}</span>}
+            <StatusBadge status={d.status} />
+          </div>
         </div>
-      </div>
 
       <div className="stats">
         <div className="stat"><span className="lbl">Net on-road</span><b>{inr(c.netOnRoad)}</b></div>
@@ -840,6 +848,7 @@ function DealEditor({ deal: d, deals, session, onUpdate, onBack, onDelete }) {
         <ModalForm title="Delete this draft?" message={`This permanently removes deal ${d.id}${chassis ? ` (chassis ${chassis})` : ""}. This can't be undone.`} fields={[]} onSubmit={() => { onDelete(); }} onClose={() => setConfirmDelete(false)} />
       )}
     </div>
+    </>
   );
 }
 
