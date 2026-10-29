@@ -8,7 +8,7 @@ import React from "react";
 
 const DEALER = {
   name: "Punya Autowheels Pvt. Ltd.",
-  tagline: "Commercial Vehicle Dealer",
+  tagline: "Channel Partner for Commercial Vehicles of Tata Motors",
   facility: "Corporate Office & 3S Facility",
   addresses: [
     "1. Kurdun H.N. A-2, Sasaram Road, Rohtas - 821113, Bihar",
@@ -59,16 +59,16 @@ const CSS = `
   @page{size:A4 portrait;margin:7mm}
   .dps{display:block;color:#000;background:#fff;font:10px/1.3 Arial,Helvetica,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .dps *{box-sizing:border-box}
-  .dps .lh{display:grid;grid-template-columns:84px 1fr 190px;gap:8px;align-items:center;border-bottom:2px solid #000;padding-bottom:5px}
-  .dps .lh-logo{width:80px;height:80px;overflow:hidden;position:relative}
-  .dps .lh-logo img{position:absolute;width:109px;left:-16px;top:-13px;max-width:none}
+  .dps .lh{display:grid;grid-template-columns:170px 1fr 170px;gap:8px;align-items:center;border-bottom:2px solid #000;padding-bottom:5px}
+  .dps .lh-logo{width:72px;height:72px;overflow:hidden;position:relative}
+  .dps .lh-logo img{position:absolute;width:98px;left:-14px;top:-12px;max-width:none}
   .dps .lh-mid{text-align:center}
-  .dps .lh-name{font:800 24px/1.1 Georgia,'Times New Roman',serif}
-  .dps .lh-tag{font-weight:700;font-size:12px;margin-top:2px}
+  .dps .lh-name{font:800 22px/1.1 Georgia,'Times New Roman',serif;white-space:nowrap}
+  .dps .lh-tag{font-weight:700;font-size:10.5px;margin-top:2px}
   .dps .lh-fac{font-weight:700;font-size:9.5px;margin-top:2px}
   .dps .lh-addr{font-size:8.5px;line-height:1.3}
   .dps .lh-right{text-align:right}
-  .dps .lh-right img{width:180px;height:auto;display:inline-block}
+  .dps .lh-right img{width:160px;height:auto;display:inline-block}
   .dps .lh-gst{font:700 10px 'Courier New',monospace;margin-top:3px}
   .dps .ttl{display:flex;justify-content:space-between;align-items:flex-end;margin:6px 0 4px}
   .dps .ttl h2{margin:0;font:700 15px Georgia,serif;text-decoration:underline;flex:1;text-align:center}
@@ -99,6 +99,7 @@ const CSS = `
   .dps .office .hd{text-align:center;font-weight:800;text-decoration:underline;font-size:11px;margin-bottom:3px}
   .dps .gate{display:flex;align-items:center;justify-content:center;text-align:center;font-size:8.5px;line-height:1.3}
   .dps .foot{margin-top:4px;font-size:8.5px;display:flex;justify-content:space-between}
+  .dps .ce .v,.dps td.a,.dps .mono{font-family:Calibri,Carlito,'Segoe UI',Arial,sans-serif;font-size:11px;font-weight:600}
 }
 `;
 
