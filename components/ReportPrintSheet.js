@@ -8,7 +8,7 @@ import React from "react";
 
 const DEALER = {
   name: "Punya Autowheels Pvt. Ltd.",
-  tagline: "Commercial Vehicle Dealer",
+  tagline: "Channel Partner for Commercial Vehicles of Tata Motors",
   facility: "Corporate Office & 3S Facility",
   addresses: [
     "1. Kurdun H.N. A-2, Sasaram Road, Rohtas - 821113, Bihar",
@@ -64,12 +64,12 @@ const CSS = `
   @page{size:A4 landscape;margin:8mm}
   .rps{display:block;color:#000;background:#fff;font:11px/1.35 Arial,Helvetica,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .rps *{box-sizing:border-box}
-  .rps .lh{display:grid;grid-template-columns:96px 1fr 210px;gap:10px;align-items:center;border-bottom:2px solid #000;padding-bottom:6px}
-  .rps .lh-logo{width:90px;height:90px;overflow:hidden;position:relative}
-  .rps .lh-logo img{position:absolute;width:122px;left:-18px;top:-15px;max-width:none}
+  .rps .lh{display:grid;grid-template-columns:210px 1fr 210px;gap:10px;align-items:center;border-bottom:2px solid #000;padding-bottom:6px}
+  .rps .lh-logo{width:80px;height:80px;overflow:hidden;position:relative}
+  .rps .lh-logo img{position:absolute;width:108px;left:-16px;top:-13px;max-width:none}
   .rps .lh-mid{text-align:center}
-  .rps .lh-name{font:800 27px/1.1 Georgia,'Times New Roman',serif;letter-spacing:.2px}
-  .rps .lh-tag{font-weight:700;font-size:13px;margin-top:2px}
+  .rps .lh-name{white-space:nowrap;font:800 27px/1.1 Georgia,'Times New Roman',serif;letter-spacing:.2px}
+  .rps .lh-tag{font-weight:700;font-size:12px;margin-top:2px}
   .rps .lh-fac{font-weight:700;font-size:10.5px;margin-top:3px}
   .rps .lh-addr{font-size:9.5px;line-height:1.35}
   .rps .lh-right{text-align:right}
