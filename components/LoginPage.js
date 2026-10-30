@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Truck, Lock, User, ArrowRight, AlertCircle, Eye, EyeOff, Building2, FileSpreadsheet, Wallet, ShieldCheck } from "lucide-react";
+import { Lock, User, ArrowRight, AlertCircle, Eye, EyeOff, Building2, FileSpreadsheet, Wallet, ShieldCheck } from "lucide-react";
 
 const BRANCH_LIST = [
   { name: "Sasaram", tag: "Headquarters" },
@@ -26,12 +26,11 @@ const CSS = `
 .lg .flex{display:flex;align-items:center;gap:10px}
 .lg .left{background:var(--ink);color:#F3EFE6;padding:36px 48px;display:flex;flex-direction:column;justify-content:space-between;gap:36px;position:relative;overflow:hidden}
 .lg .left::after{content:"";position:absolute;right:-120px;bottom:-120px;width:380px;height:380px;border-radius:50%;border:56px solid #24211D;pointer-events:none}
-.lg .mark{width:38px;height:38px;border-radius:9px;background:var(--acc);display:grid;place-items:center;color:#fff}
-.lg .brand{font-size:21px;font-weight:800;letter-spacing:.04em}
+.lg .brand{font-size:20px;font-weight:800;letter-spacing:.02em}
 .lg .eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#E8A58A;font-weight:700}
-.lg h1{font-size:clamp(34px,4.6vw,54px);line-height:1.02;font-weight:800;margin:10px 0 16px}
+.lg h1{font-size:clamp(32px,4.2vw,50px);line-height:1.05;font-weight:800;margin:10px 0 16px}
 .lg h1 em{font-style:normal;color:var(--acc)}
-.lg .lead{color:#A9A293;max-width:460px;font-size:15px}
+.lg .lead{color:#A9A293;max-width:480px;font-size:14.5px;line-height:1.5}
 .lg .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
 .lg .chip{border:1px solid #3A362F;border-radius:99px;padding:5px 12px;font-size:12px;display:flex;align-items:center;gap:6px;color:#D9D3C5}
 .lg .chip small{color:#7F796C;font-size:10px}
@@ -99,21 +98,43 @@ export default function LoginPage({ onLoginSuccess }) {
       <style>{CSS}</style>
 
       <section className="left">
-        <div className="flex" style={{ gap: 12 }}>
-          <div className="mark"><Truck size={20} /></div>
+        <div className="flex" style={{ gap: 14 }}>
+          <img
+            src="/punya-logo.png"
+            alt="Punya Autowheels Pvt. Ltd."
+            style={{
+              height: 48,
+              width: "auto",
+              objectFit: "contain",
+              background: "#fff",
+              padding: "4px 8px",
+              borderRadius: 8,
+              boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+            }}
+          />
           <div>
-            <div className="brand disp">TATA PUNYA</div>
-            <div style={{ fontSize: 11.5, color: "#8F897B" }}>Commercial Vehicle Sales & Operations Platform</div>
+            <div className="brand disp">Punya Autowheels Pvt. Ltd.</div>
+            <div style={{ fontSize: 11.5, color: "#8F897B" }}>
+              Channel Partner for Commercial Vehicles of Tata Motors
+            </div>
           </div>
         </div>
 
         <div style={{ position: "relative", zIndex: 1 }}>
-          <div className="eyebrow">Authorized Dealership Portal</div>
-          <h1 className="disp">Commercial Vehicle <em>Sales & Operations ERP</em></h1>
-          <p className="lead">Centralized platform for pricing quotation, bank audit verification, statutory RTO compliance, and deal management across the entire Tata Punya network.</p>
+          <div className="eyebrow">Authorized Tata Motors Dealership Portal</div>
+          <h1 className="disp">
+            Commercial Vehicle <em>Sales &amp; Operations ERP</em>
+          </h1>
+          <p className="lead">
+            Official sales portal for Punya Autowheels Pvt. Ltd. — pricing quotation, bank audit verification, statutory RTO compliance, and deal management across our dealership network.
+          </p>
           <div className="chips">
             {BRANCH_LIST.map((b) => (
-              <span key={b.name} className="chip"><Building2 size={13} color="#D2481B" />{b.name}<small className="mono">{b.tag}</small></span>
+              <span key={b.name} className="chip">
+                <Building2 size={13} color="#D2481B" />
+                {b.name}
+                <small className="mono">{b.tag}</small>
+              </span>
             ))}
           </div>
         </div>
@@ -121,7 +142,10 @@ export default function LoginPage({ onLoginSuccess }) {
         <div className="mods">
           {CORE_MODULES.map(({ title, desc, icon: Icon }) => (
             <div key={title} className="mod">
-              <b><Icon size={16} />{title}</b>
+              <b>
+                <Icon size={16} />
+                {title}
+              </b>
               <p>{desc}</p>
             </div>
           ))}
@@ -129,37 +153,74 @@ export default function LoginPage({ onLoginSuccess }) {
       </section>
 
       <section className="right">
-        <div className="status"><i />System Online</div>
+        <div className="status">
+          <i />
+          System Online
+        </div>
 
         <div className="card">
           <h2 className="disp">Sign in</h2>
-          <p>Enter your credentials to access your dealership workspace.</p>
+          <p>Punya Autowheels Pvt. Ltd. staff dealership portal.</p>
 
-          {error && <div className="err"><AlertCircle size={16} style={{ flex: "none" }} /><span>{error}</span></div>}
+          {error && (
+            <div className="err">
+              <AlertCircle size={16} style={{ flex: "none" }} />
+              <span>{error}</span>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} autoComplete="off">
             <label className="lbl">Username</label>
             <div className="inp">
               <User size={16} />
-              <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Enter your username" autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck="false" />
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Enter staff username"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="none"
+                spellCheck="false"
+              />
             </div>
 
             <label className="lbl">Password</label>
             <div className="inp">
               <Lock size={16} />
-              <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" autoComplete="new-password" />
-              <button type="button" className="eye" tabIndex={-1} onClick={() => setShowPassword(!showPassword)}>
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter password"
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                className="eye"
+                tabIndex={-1}
+                onClick={() => setShowPassword(!showPassword)}
+              >
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
 
             <button type="submit" className="go" disabled={loading}>
-              {loading ? <span className="spin" /> : <><span>Sign In to ERP</span><ArrowRight size={16} /></>}
+              {loading ? (
+                <span className="spin" />
+              ) : (
+                <>
+                  <span>Sign In to ERP</span>
+                  <ArrowRight size={16} />
+                </>
+              )}
             </button>
           </form>
         </div>
 
-        <div className="foot">TATA PUNYA · Tata Punya ERP &copy; {new Date().getFullYear()} · All rights reserved.</div>
+        <div className="foot">
+          Punya Autowheels Pvt. Ltd. &copy; {new Date().getFullYear()} · All rights reserved.
+        </div>
       </section>
     </div>
   );

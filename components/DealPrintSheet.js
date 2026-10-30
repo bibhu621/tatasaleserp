@@ -177,7 +177,7 @@ export default function DealPrintSheet({ deal: d, totals: t, showOffice = false,
       {/* ---------------- Letterhead ---------------- */}
       <div className="lh">
         <div className="lh-logo">
-          <img src={DEALER.punyaLogo} alt="Punya Autowheels" />
+          <img src={DEALER.punyaLogo} alt="Punya Autowheels Pvt. Ltd." />
         </div>
         <div className="lh-mid">
           <div className="lh-name">{DEALER.name}</div>
@@ -349,6 +349,50 @@ export default function DealPrintSheet({ deal: d, totals: t, showOffice = false,
           </tbody>
         </table>
       </div>
+
+      {/* ---------------- Refund log ---------------- */}
+      {(d.refundLog || []).length > 0 && (
+        <div className="keep" style={{ marginTop: 6 }}>
+          <h3>Customer Refund Log</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Refund To / Category</th>
+                <th>Mode</th>
+                <th>Reference / UTR</th>
+                <th>Entered by</th>
+                <th>Status</th>
+                <th className="a">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {d.refundLog.map((e) => {
+                const st = payStatus(e);
+                return (
+                  <tr key={e.id}>
+                    <td className="mono">{e.date}</td>
+                    <td><b>{e.refundType || "Customer"}</b></td>
+                    <td>{e.mode}</td>
+                    <td className="mono">{e.reference || "—"}</td>
+                    <td>{e.enteredBy}</td>
+                    <td>{st === "verified" ? "Verified" : st === "rejected" ? "Rejected" : "Unverified"}</td>
+                    <td className="a" style={st === "rejected" ? { textDecoration: "line-through" } : { color: "#A8281F" }}>
+                      {inr(e.amount)}
+                    </td>
+                  </tr>
+                );
+              })}
+              <tr className="b">
+                <td colSpan={6} style={{ textAlign: "right" }}>Total Refunded</td>
+                <td className="a" style={{ color: "#A8281F" }}>
+                  {inr(sum((d.refundLog || []).filter(e => payStatus(e) !== "rejected"), e => e.amount))}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* ---------------- Signatures ---------------- */}
       <div className="sigs keep">

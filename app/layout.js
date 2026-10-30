@@ -12,8 +12,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "Tata Punya ERP - TATA PUNYA",
-  description: "Tata Punya ERP - Commercial Vehicle Sales & Operations Platform · TATA PUNYA",
+  title: "Punya Autowheels Pvt. Ltd. - Tata Motors Commercial Vehicles ERP",
+  description: "Punya Autowheels Pvt. Ltd. - Commercial Vehicle Sales & Operations Platform · Authorized Tata Motors Channel Partner",
 };
 
 export default function RootLayout({ children }) {

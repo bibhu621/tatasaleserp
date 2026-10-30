@@ -107,7 +107,7 @@ function calcDeal(deal) {
     .filter((a) => a.status === "pending")
     .reduce((s, a) => s + num(a.amount), 0);
 
-  const balance = netOnRoad - totalCollected - approvedAdjustments;
+  const balance = netOnRoad - (typeof netCollected !== "undefined" ? netCollected : totalCollected) - approvedAdjustments;
 
   return {
     netPrice,
@@ -277,7 +277,8 @@ function startOfWeekMonday(now) {
 /* ---------------------------------------------------------------------- */
 
 export default function ReportsDashboard({ deals = [], session, onOpen }) {
-  const isAdmin = session?.role === "admin";
+  const isAdmin = session?.role === "admin" || session?.role === "superadmin";
+  const isSuperAdmin = session?.role === "superadmin";
   const isSales = session?.role === "sales";
 
   // When salesman, strictly scope incoming deals to his own deals
@@ -318,7 +319,7 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
             const data = await res.json();
             if (data.users) {
               setRegisteredSalesmen(
-                data.users.filter((u) => u.role === "sales" || u.role === "admin").map((u) => u.name)
+                data.users.filter((u) => u.role === "sales" || u.role === "admin" || u.role === "superadmin").map((u) => u.name)
               );
             }
           }
@@ -677,7 +678,7 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
       // Sheet 4: Performance Summary (per role)
       if (isSales) {
         const summaryRows = [
-          { "Performance Metric": "Dealership Company", Value: "TATA PUNYA" },
+          { "Performance Metric": "Dealership Company", Value: "Punya Autowheels Pvt. Ltd." },
           { "Performance Metric": "Report Type", Value: "Sales Executive Personal Performance" },
           { "Performance Metric": "Sales Executive Name", Value: session?.name || "Salesman" },
           { "Performance Metric": "Assigned Branch", Value: normalizeBranch(session?.branch) },
@@ -695,8 +696,8 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
         XLSX.utils.book_append_sheet(wb, wsSummary, "My Performance Summary");
       } else {
         const summaryRows = [
-          { "Key Performance Metric": "Dealership Company", Value: "TATA PUNYA" },
-          { "Key Performance Metric": "Software System", Value: "Tata Punya ERP" },
+          { "Key Performance Metric": "Dealership Company", Value: "Punya Autowheels Pvt. Ltd." },
+          { "Key Performance Metric": "Software System", Value: "Punya Autowheels Pvt. Ltd. ERP" },
           { "Key Performance Metric": "Total Filtered Deals", Value: filteredDeals.length },
           { "Key Performance Metric": "Total Net Order Value (INR)", Value: inr(metrics.totalNet) },
           { "Key Performance Metric": "Total Collected Revenue (INR)", Value: inr(metrics.totalCollected) },
@@ -716,7 +717,7 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
         XLSX.utils.book_append_sheet(wb, wsSummary, "Executive Summary");
       }
 
-      const filename = `${isSales ? "Tata_Punya_My_Sales_Report" : "Tata_Punya_Sales_Report"}_${new Date()
+      const filename = `${isSales ? "Punya_Autowheels_My_Sales_Report" : "Punya_Autowheels_Sales_Report"}_${new Date()
         .toISOString()
         .slice(0, 10)}.xlsx`;
 
@@ -762,7 +763,7 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
     const link = document.createElement("a");
     link.style.display = "none";
     link.href = url;
-    link.download = `${isSales ? "Tata_Punya_My_Sales_Report" : "Tata_Punya_Sales_Report"}_${new Date()
+    link.download = `${isSales ? "Punya_Autowheels_My_Sales_Report" : "Punya_Autowheels_Sales_Report"}_${new Date()
       .toISOString()
       .slice(0, 10)}.csv`;
     document.body.appendChild(link);
@@ -817,10 +818,10 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
                   style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
                 >
                   {isAdmin
-                    ? "TATA PUNYA · Executive Dashboard"
+                    ? "Punya Autowheels Pvt. Ltd. Â· Executive Dashboard"
                     : isSales
-                      ? "TATA PUNYA · My Sales Report"
-                      : "TATA PUNYA · Sales Report"}
+                      ? "Punya Autowheels Pvt. Ltd. Â· My Sales Report"
+                      : "Punya Autowheels Pvt. Ltd. Â· Sales Report"}
                 </h1>
                 {isAdmin ? (
                   <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
@@ -834,14 +835,14 @@ export default function ReportsDashboard({ deals = [], session, onOpen }) {
                   </span>
                 ) : (
                   <span className="text-[11px] font-semibold bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded-full">
-                    Tata Punya ERP · {normalizeBranch(session?.branch)}
+                    Punya Autowheels Pvt. Ltd. ERP · {normalizeBranch(session?.branch)}
                   </span>
                 )}
               </div>
               <p className="text-xs text-slate-300 max-w-2xl">
                 {isSales
                   ? "Track your closed sales deals, timeline performance, payment collection receipts, and outstanding customer balances."
-                  : "Tata Punya ERP — Track ongoing day-wise, week-wise, monthly, and yearly sales performance with salesman drilldowns, collected revenue, outstanding customer dues, and payment UTR verifications."}
+                  : "Punya Autowheels Pvt. Ltd. ERP — Track ongoing day-wise, week-wise, monthly, and yearly sales performance with salesman drilldowns, collected revenue, outstanding customer dues, and payment UTR verifications."}
               </p>
             </div>
 

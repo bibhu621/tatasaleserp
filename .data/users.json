@@ -1,5 +1,16 @@
 [
   {
+    "id": "usr_superadmin",
+    "username": "superadmin",
+    "password": "$2b$10$SJ0j3.Sol.FFlXYNxgkMXOkLy8Qs5y9Gka6ye3SD1oEpKTYhqCgNK",
+    "name": "Master Super Admin",
+    "role": "superadmin",
+    "branch": "Sasaram",
+    "isActive": true,
+    "credentialsDeleted": false,
+    "createdAt": "2026-10-30T10:00:00.000Z"
+  },
+  {
     "id": "usr_admin",
     "username": "admin",
     "password": "$2b$10$SJ0j3.Sol.FFlXYNxgkMXOkLy8Qs5y9Gka6ye3SD1oEpKTYhqCgNK",
@@ -7,6 +18,7 @@
     "role": "admin",
     "branch": "Sasaram",
     "isActive": true,
+    "credentialsDeleted": false,
     "createdAt": "2026-09-10T12:11:35.576Z"
   },
   {
@@ -17,6 +29,7 @@
     "role": "sales",
     "branch": "Bihiya",
     "isActive": true,
+    "credentialsDeleted": false,
     "createdAt": "2026-09-10T12:13:46.745Z"
   },
   {
@@ -27,6 +40,7 @@
     "role": "accounts",
     "branch": "Sasaram",
     "isActive": true,
+    "credentialsDeleted": false,
     "createdAt": "2026-10-16T08:32:07.738Z"
   }
 ]

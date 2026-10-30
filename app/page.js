@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
-import { Truck, ClipboardCheck, Wallet, BarChart3, Plus, ChevronRight, ChevronDown, CheckCircle2, XCircle, Clock, PackageCheck, ArrowLeft, LogOut, AlertTriangle, FileText, Filter, RefreshCw, Search, ShieldCheck, Lock, Users, Printer } from "lucide-react";
+import { Truck, ClipboardCheck, Wallet, BarChart3, Plus, ChevronRight, ChevronDown, CheckCircle2, XCircle, Clock, PackageCheck, ArrowLeft, LogOut, AlertTriangle, FileText, Filter, RefreshCw, Search, ShieldCheck, Lock, Users, Printer, RotateCcw } from "lucide-react";
 import LoginPage from "@/components/LoginPage";
 import UserManagement from "@/components/UserManagement";
 import ReportsDashboard from "@/components/ReportsDashboard";
@@ -25,9 +25,9 @@ const CSS = `
 .erp .spin{width:26px;height:26px;border:2px solid var(--acc);border-top-color:transparent;border-radius:50%;animation:sp .8s linear infinite;margin:0 auto 10px}
 @keyframes sp{to{transform:rotate(360deg)}}
 
-.erp .top{background:var(--ink);color:#F3EFE6;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:20}
+.erp .top{background:var(--ink);color:#F3EFE6;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:20}
 .erp .mark{width:34px;height:34px;border-radius:8px;background:var(--acc);display:grid;place-items:center;color:#fff}
-.erp .brand{font-size:20px;font-weight:800;letter-spacing:.04em}
+.erp .brand{font-size:18px;font-weight:800;letter-spacing:.02em}
 .erp .env{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#A9A293;border:1px solid #3A362F;padding:2px 8px;border-radius:99px}
 .erp .who{text-align:right;line-height:1.25}.erp .who small{color:#A9A293;font-size:11px;letter-spacing:.08em;text-transform:uppercase}
 .erp .dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px}
@@ -83,7 +83,7 @@ const CSS = `
 .erp .search input{width:100%;padding:10px 12px 10px 36px;border:1px solid var(--line);border-radius:10px;background:#fff;font:inherit;outline:0}
 .erp .search input:focus{border-color:var(--ink)}
 
-.erp .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.erp .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
 .erp .stat{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
 .erp .stat b{display:block;font-size:22px;margin-top:2px;font-family:'Bricolage Grotesque',sans-serif;font-variant-numeric:tabular-nums}
 .erp .banner{display:flex;gap:10px;align-items:flex-start;padding:11px 14px;border-radius:10px;font-size:13px;background:#FBF0D6;color:#6E4300;border:1px solid #EBD39A}
@@ -141,8 +141,9 @@ function formatParty(c) {
 }
 
 const ROLES = [
+  { id: "superadmin", label: "Super Admin", desc: "Full control: reopen & edit deals anytime, user management & system settings", color: "#8E1D13" },
+  { id: "admin", label: "Admin", desc: "Review, see and approve pricing, overages & deals", color: "#D2481B" },
   { id: "sales", label: "Sales", desc: "Create deals, quote pricing, log receipts", color: "#3B82C4" },
-  { id: "admin", label: "Admin", desc: "Approve pricing & overages, close deals", color: "#D2481B" },
   { id: "accounts", label: "Accounts", desc: "Verify payments, office-use fields", color: "#3E9B63" },
   { id: "rto", label: "RTO / Registration", desc: "Feed insurance/HSRP/TR/registration spend", color: "#8E5FC7" },
 ];
@@ -204,14 +205,18 @@ function newDeal(branch, actor, initialCustomer = {}) {
     pricing: emptyPricing(),
     officeUse: emptyOfficeUse(),
     approval: { status: STATUS.DRAFT, by: "", at: "", remarks: "" },
-    paymentLog: [], expenses: [], amendments: [], adjustments: [],
+    paymentLog: [],
+    refundLog: [],
+    expenses: [],
+    amendments: [],
+    adjustments: [],
     expenseClosed: { insurance: false, hsrp: false, tr: false, registration: false },
     activity: [logEntry(actor?.name || "Sales", actor?.role || "sales", `Deal created for ${selectedBranch} branch`)],
   };
 }
 
 const num = v => (isNaN(parseFloat(v)) ? 0 : parseFloat(v));
-const sum = (arr, f = x => x) => arr.reduce((s, x) => s + num(f(x)), 0);
+const sum = (arr, f = x => x) => (arr || []).reduce((s, x) => s + num(f(x)), 0);
 const inr = v => "₹" + Math.round(num(v)).toLocaleString("en-IN");
 
 function describe(v) {
@@ -233,9 +238,23 @@ function calc(deal) {
   const totalOnRoad = netPrice + adds;
   const netOnRoad = totalOnRoad - num(p.exchangeBonus);
   const totalCollected = sum((deal?.paymentLog || []).filter(e => paymentStatus(e) !== "rejected"), e => e.amount);
+  const totalRefunded = sum((deal?.refundLog || []).filter(e => paymentStatus(e) !== "rejected"), e => e.amount);
+  const netCollected = totalCollected - totalRefunded;
   const adj = s => sum((deal?.adjustments || []).filter(a => a.status === s), a => a.amount);
   const approvedAdjustments = adj("approved"), pendingAdjustments = adj("pending");
-  return { netPrice, tcs, totalOnRoad, netOnRoad, totalCollected, approvedAdjustments, pendingAdjustments, balance: netOnRoad - totalCollected - approvedAdjustments, otherDiscountsTotal };
+  return {
+    netPrice,
+    tcs,
+    totalOnRoad,
+    netOnRoad,
+    totalCollected,
+    totalRefunded,
+    netCollected,
+    approvedAdjustments,
+    pendingAdjustments,
+    balance: netOnRoad - netCollected - approvedAdjustments,
+    otherDiscountsTotal,
+  };
 }
 const expenseCap = (deal, cat) => num(deal.pricing[EXPENSE_CATEGORIES.find(c => c.id === cat)?.pricingField]);
 const postedSpend = (expenses, cat, excludeId = null) => sum((expenses || []).filter(e => e.category === cat && e.status === "posted" && e.id !== excludeId), e => e.amount);
@@ -251,7 +270,7 @@ function availableAdvance(deals, src, excludeEntryId = null) {
 const flat = (deals, key, pred = () => true) =>
   deals.flatMap(d => (d[key] || []).filter(pred).map(e => ({ ...e, dealId: d.id, customer: formatParty(d.customer), branch: normalizeBranch(d.branch), chassis: d.vehicle.chassisNo })));
 // Immutable "patch one entry in a list" updater.
-const patchIn = (key, id, patch) => p => ({ ...p, [key]: p[key].map(e => (e.id === id ? { ...e, ...patch } : e)) });
+const patchIn = (key, id, patch) => p => ({ ...p, [key]: (p[key] || []).map(e => (e.id === id ? { ...e, ...patch } : e)) });
 const dealSub = e => `${e.branch} · ${e.dealId}${e.chassis ? ` · Chassis ${e.chassis}` : ""}`;
 
 /* ====================================================================== */
@@ -386,19 +405,31 @@ function OtherDiscountsEditor({ value, onChange, readOnly, onCommit }) {
 
 function DealEditor({ deal: d, deals, session, onUpdate, onBack, onDelete }) {
   const { role } = session;
-  const isSales = role === "sales", isAdmin = role === "admin", isAccounts = role === "accounts", isRto = role === "rto";
+  const isSuperAdmin = role === "superadmin";
+  const isAdmin = role === "admin";
+  const isAccounts = role === "accounts";
+  const isSales = role === "sales";
+  const isRto = role === "rto";
+  const isAdminOrSuper = isAdmin || isSuperAdmin;
   const chassis = d.vehicle.chassisNo;
   const hasPendingAmendment = (d.amendments || []).some(a => a.status === "pending");
   const [editMode, setEditMode] = useState(false);
   const [modal, setModal] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  // Draft/Rejected: edits apply immediately. Pending: fully locked. Approved/Delivered: locked until
-  // Sales/Admin enters Edit mode, then changes are staged (or saved by Admin). Closed: hard lock.
+  // Status flags
   const preApproval = d.status === STATUS.DRAFT || d.status === STATUS.REJECTED;
   const postApproval = d.status === STATUS.APPROVED || d.status === STATUS.DELIVERED;
-  const canTouch = (isSales || isAdmin) && !hasPendingAmendment && (preApproval || (postApproval && editMode));
-  const gated = postApproval && !isAdmin;
+  const isClosed = d.status === STATUS.CLOSED;
+
+  // Requirement 1: Super Admin has privilege to reopen and edit deal anytime.
+  // Admin can ONLY see and approve (no direct arbitrary editing).
+  const canTouch = isSuperAdmin
+    ? (preApproval || editMode)
+    : isSales && !hasPendingAmendment && (preApproval || (postApproval && editMode));
+
+  const gated = !isSuperAdmin; // Only Super Admin bypasses amendment staging completely!
+
   const snapshot = () => ({
     customer: { ...emptyCustomer(), ...(d.customer || {}) },
     vehicle: { ...emptyVehicle(), ...(d.vehicle || {}) },
@@ -416,9 +447,10 @@ function DealEditor({ deal: d, deals, session, onUpdate, onBack, onDelete }) {
   }, [d.id]);
 
   // Every change saves immediately through onUpdate; nothing lives only in this component.
-  const withLog = (patchFn, note) => onUpdate(prev => ({ ...patchFn(prev), activity: [...prev.activity, logEntry(session.name, role, note)] }));
-  const set = (section, field, value) => onUpdate(prev => ({ ...prev, [section]: { ...prev[section], [field]: value } }));
+  const withLog = (patchFn, note) => onUpdate(prev => ({ ...patchFn(prev), activity: [...(prev.activity || []), logEntry(session.name, role, note)] }));
+  const set = (section, field, value) => onUpdate(prev => ({ ...prev, [section]: { ...(prev[section] || {}), [field]: value } }));
   const commitFieldChange = (section, field, o, n) => { if (JSON.stringify(o) !== JSON.stringify(n)) withLog(p => p, `Changed ${section}.${field}: ${describe(o)} → ${describe(n)}`); };
+
   const editCore = (section, field, value) => {
     if (section === "pricing") {
       setCoreDraft(prev => {
@@ -430,7 +462,7 @@ function DealEditor({ deal: d, deals, session, onUpdate, onBack, onDelete }) {
       });
       if (!gated) {
         onUpdate(prev => {
-          const nextPricing = { ...prev.pricing, [field]: value };
+          const nextPricing = { ...(prev.pricing || {}), [field]: value };
           const otherTot = sum(nextPricing.otherDiscounts || [], o => o.amount);
           const net = num(nextPricing.exshowroom) - num(nextPricing.tmlDiscount) - num(nextPricing.dealerDiscount) - num(nextPricing.vasNfaDiscount) - otherTot;
           nextPricing.tcs = net > 1000000 ? Math.round(net * 0.01) : 0;
@@ -444,7 +476,9 @@ function DealEditor({ deal: d, deals, session, onUpdate, onBack, onDelete }) {
   };
   const editCoreCommit = (section, field, o, n) => { if (!gated) commitFieldChange(section, field, o, n); };
   const discardEdits = () => { setCoreDraft(snapshot()); setEditMode(false); };
-  const saveAdminEdits = () => {
+
+  // Super Admin direct saving anytime
+  const saveSuperAdminEdits = () => {
     withLog(p => {
       const nextPricing = { ...(p.pricing || {}), ...(coreDraft.pricing || {}) };
       const otherTot = sum(nextPricing.otherDiscounts || [], o => o.amount);
@@ -456,8 +490,43 @@ function DealEditor({ deal: d, deals, session, onUpdate, onBack, onDelete }) {
         vehicle: { ...(p.vehicle || {}), ...(coreDraft.vehicle || {}) },
         pricing: nextPricing,
       };
-    }, "Admin updated deal fields directly");
+    }, "Super Admin updated deal fields directly");
     setEditMode(false);
+  };
+
+  // Requirement 1: Reopen deal anytime (Super Admin exclusive)
+  const reopenDeal = () => {
+    setModal({
+      title: "Reopen Deal (Super Admin)",
+      message: `Reopen deal ${d.id} for full editing or further transactions. This privilege is exclusive to Super Admin.`,
+      fields: [
+        {
+          name: "targetStatus",
+          label: "Reopen Status",
+          type: "select",
+          options: [STATUS.APPROVED, STATUS.DRAFT],
+          optionLabels: {
+            [STATUS.APPROVED]: "Approved (Collecting Payments & Operations)",
+            [STATUS.DRAFT]: "Draft (Full Editing Mode)",
+          },
+          defaultValue: STATUS.APPROVED,
+        },
+        {
+          name: "reason",
+          label: "Reason for Reopening",
+          autoFocus: true,
+        },
+      ],
+      onSubmit: v => {
+        const nextStatus = v.targetStatus || STATUS.APPROVED;
+        const reason = v.reason ? `: ${v.reason}` : "";
+        withLog(
+          p => ({ ...p, status: nextStatus }),
+          `Deal reopened to "${STATUS_META[nextStatus]?.label || nextStatus}" by Super Admin${reason}`
+        );
+        setEditMode(true);
+      },
+    });
   };
 
   const requestAmendment = () => {
@@ -470,6 +539,7 @@ function DealEditor({ deal: d, deals, session, onUpdate, onBack, onDelete }) {
     withLog(p => ({ ...p, amendments: [...(p.amendments || []), amendment] }), `Requested approval for ${changes.length} field change(s) — ${describeChanges(changes)}`);
     setEditMode(false);
   };
+
   const reviewAmendment = (id, approved) => {
     const am = (d.amendments || []).find(a => a.id === id);
     if (!am) return;
@@ -483,7 +553,7 @@ function DealEditor({ deal: d, deals, session, onUpdate, onBack, onDelete }) {
   const submitForApproval = () => {
     const validBranch = normalizeBranch(d.branch);
     if (!validBranch || !BRANCHES.includes(validBranch)) {
-      alert("⚠️ Branch selection is mandatory! Please select one of the 4 branches (Sasaram, Bihiya, Buxas, or Mohaniya) before submitting for Admin approval.");
+      alert("⚠️ Branch selection is mandatory! Please select one of the 4 branches (Sasaram, Bihiya, Buxas, or Mohaniya) before submitting for approval.");
       return;
     }
     withLog(p => ({ ...p, branch: validBranch, status: STATUS.PENDING, approval: { status: STATUS.PENDING, by: "", at: "", remarks: "" } }), "Submitted pricing for admin approval");
@@ -494,12 +564,13 @@ function DealEditor({ deal: d, deals, session, onUpdate, onBack, onDelete }) {
     fields: [{ name: "remarks", label: "Reason (shown to Sales)", autoFocus: true }],
     onSubmit: v => withLog(p => ({ ...p, status: STATUS.REJECTED, approval: { status: "rejected", by: session.name, at: stamp(), remarks: v.remarks || "" } }), "Pricing rejected" + (v.remarks ? `: ${v.remarks}` : "")),
   });
-  // Delivery can precede the financer's payment — Admin may mark delivered any time once approved.
-  const markDelivered = () => withLog(p => ({ ...p, status: STATUS.DELIVERED }), "Marked as delivered by Admin");
-  const closeDeal = () => withLog(p => ({ ...p, status: STATUS.CLOSED }), "Closed by Admin — all customer commitments now locked");
 
+  const markDelivered = () => withLog(p => ({ ...p, status: STATUS.DELIVERED }), "Marked as delivered");
+  const closeDeal = () => withLog(p => ({ ...p, status: STATUS.CLOSED }), "Closed deal — all customer commitments completed");
+
+  // Payment Logging
   const addPayment = () => {
-    const modeOptions = isAdmin ? [...PAYMENT_MODES, ADMIN_ONLY_PAYMENT_MODE] : PAYMENT_MODES;
+    const modeOptions = isAdminOrSuper ? [...PAYMENT_MODES, ADMIN_ONLY_PAYMENT_MODE] : PAYMENT_MODES;
     const advances = deals.filter(dl => dl.id !== d.id).map(dl => {
       const avail = availableAdvance(deals, dl);
       return { id: dl.id, avail, label: `${formatParty(dl.customer)} · ${normalizeBranch(dl.branch)} · Chassis ${dl.vehicle.chassisNo || "—"} · Available ${inr(avail)}` };
@@ -520,7 +591,7 @@ function DealEditor({ deal: d, deals, session, onUpdate, onBack, onDelete }) {
         const adv = v.mode === ADMIN_ONLY_PAYMENT_MODE;
         let sourceLabel = "";
         if (adv) {
-          if (!isAdmin) return "Only Admin can use Advance Adjustment.";
+          if (!isAdminOrSuper) return "Only Admin/Super Admin can use Advance Adjustment.";
           const source = deals.find(dl => dl.id === v.sourceDealId);
           if (!source) return "Select a valid source deal.";
           const avail = availableAdvance(deals, source);
@@ -531,17 +602,16 @@ function DealEditor({ deal: d, deals, session, onUpdate, onBack, onDelete }) {
           id: "P" + Date.now().toString(36), date: v.date, amount, mode: v.mode,
           reference: adv ? "" : v.reference || "", sourceDealId: adv ? v.sourceDealId : undefined,
           enteredBy: session.name,
-          // Accounts recording their own receipt needn't verify it again.
           status: isAccounts ? "verified" : "pending", verifiedBy: isAccounts ? session.name : undefined,
         };
-        withLog(p => ({ ...p, paymentLog: [...p.paymentLog, entry] }), `Logged payment ${inr(amount)} via ${v.mode}${sourceLabel} (received ${v.date})${isAccounts ? " — recorded as received" : ""}`);
+        withLog(p => ({ ...p, paymentLog: [...(p.paymentLog || []), entry] }), `Logged payment ${inr(amount)} via ${v.mode}${sourceLabel} (received ${v.date})${isAccounts ? " — recorded as received" : ""}`);
       },
     });
   };
-  const payLabel = id => { const e = d.paymentLog.find(x => x.id === id); return e ? `${inr(e.amount)} via ${e.mode}` : ""; };
+  const payLabel = id => { const e = (d.paymentLog || []).find(x => x.id === id); return e ? `${inr(e.amount)} via ${e.mode}` : ""; };
   const verifyPayment = id => withLog(patchIn("paymentLog", id, { status: "verified", verifiedBy: session.name }), `Verified payment ${payLabel(id)}`);
   const rejectPayment = id => {
-    const e = d.paymentLog.find(x => x.id === id);
+    const e = (d.paymentLog || []).find(x => x.id === id);
     setModal({
       title: "Reject this payment",
       message: e ? `${inr(e.amount)} via ${e.mode}, received ${e.date}` : undefined,
@@ -550,7 +620,59 @@ function DealEditor({ deal: d, deals, session, onUpdate, onBack, onDelete }) {
     });
   };
 
-  // Last-moment adjustments (rounding off, final discount) only count once Admin approves.
+  // Requirement 4: Customer Refund log with options: Customer, Body Fabricator, Retention Amount
+  const addRefund = () => {
+    const refundOptions = ["Customer", "Body Fabricator", "Retention Amount"];
+    setModal({
+      title: "Log customer refund",
+      fields: [
+        { name: "date", label: "Date of refund", type: "date", defaultValue: today(), autoFocus: true },
+        { name: "refundType", label: "Refund to / Option", type: "select", options: refundOptions, defaultValue: "Customer" },
+        { name: "amount", label: "Amount refunded (₹)", type: "number" },
+        { name: "mode", label: "Refund payment mode", type: "select", options: PAYMENT_MODES, defaultValue: "Cash" },
+        { name: "reference", label: "Reference / UTR / Cheque No. (optional)" },
+        { name: "remarks", label: "Remarks / Reason (optional)" },
+      ],
+      onSubmit: v => {
+        const amount = parseFloat(v.amount);
+        if (!amount || isNaN(amount) || amount <= 0) return "Enter a valid amount.";
+        if (!v.date) return "Pick a date of refund.";
+        if (!v.refundType) return "Select a refund option.";
+        const entry = {
+          id: "R" + Date.now().toString(36),
+          date: v.date,
+          refundType: v.refundType,
+          amount,
+          mode: v.mode,
+          reference: v.reference || "",
+          remarks: v.remarks || "",
+          enteredBy: session.name,
+          status: isAccounts ? "verified" : "pending",
+          verifiedBy: isAccounts ? session.name : undefined,
+        };
+        withLog(
+          p => ({ ...p, refundLog: [...(p.refundLog || []), entry] }),
+          `Logged refund of ${inr(amount)} to ${v.refundType} via ${v.mode}${v.reference ? ` (Ref: ${v.reference})` : ""}${isAccounts ? " — recorded as verified" : ""}`
+        );
+      },
+    });
+  };
+  const refundLabel = id => {
+    const e = (d.refundLog || []).find(x => x.id === id);
+    return e ? `${inr(e.amount)} (${e.refundType || "Customer"}) via ${e.mode}` : "";
+  };
+  const verifyRefund = id => withLog(patchIn("refundLog", id, { status: "verified", verifiedBy: session.name }), `Verified refund ${refundLabel(id)}`);
+  const rejectRefund = id => {
+    const e = (d.refundLog || []).find(x => x.id === id);
+    setModal({
+      title: "Reject this refund",
+      message: e ? `${inr(e.amount)} to ${e.refundType || "Customer"} via ${e.mode}, dated ${e.date}` : undefined,
+      fields: [{ name: "reason", label: "Reason (e.g. invalid claim, account mismatch)", autoFocus: true }],
+      onSubmit: v => withLog(patchIn("refundLog", id, { status: "rejected", rejectedBy: session.name, rejectionReason: v.reason || "" }), `Rejected refund ${refundLabel(id)}${v.reason ? ": " + v.reason : ""}`),
+    });
+  };
+
+  // Adjustments
   const addAdjustment = () => setModal({
     title: "Add receipt adjustment",
     fields: [
@@ -570,6 +692,7 @@ function DealEditor({ deal: d, deals, session, onUpdate, onBack, onDelete }) {
     withLog(patchIn("adjustments", id, { status: approved ? "approved" : "rejected", approvedBy: session.name }), `${approved ? "Approved" : "Rejected"} receipt adjustment ${e ? inr(e.amount) : ""}`);
   };
 
+  // RTO Expenses
   const addExpense = category => setModal({
     title: `Log ${EXPENSE_CATEGORIES.find(x => x.id === category)?.label} expense`,
     fields: [{ name: "amount", label: "Amount actually spent (₹)", type: "number", autoFocus: true }, { name: "remarks", label: "Remarks (vendor, invoice no.) — optional" }],
@@ -578,29 +701,28 @@ function DealEditor({ deal: d, deals, session, onUpdate, onBack, onDelete }) {
       if (!amount || isNaN(amount) || amount <= 0) return "Enter a valid amount.";
       withLog(p => {
         const status = postedSpend(p.expenses, category) + amount > expenseCap(p, category) ? "pending_approval" : "posted";
-        return { ...p, expenses: [...p.expenses, { id: "E" + Date.now().toString(36), category, amount, remarks: v.remarks || "", status, enteredBy: session.name, createdAt: stamp() }] };
+        return { ...p, expenses: [...(p.expenses || []), { id: "E" + Date.now().toString(36), category, amount, remarks: v.remarks || "", status, enteredBy: session.name, createdAt: stamp() }] };
       }, `Logged ${category} expense ${inr(amount)}`);
     },
   });
   const reviewExpense = (id, approved) => {
-    const e = d.expenses.find(x => x.id === id);
+    const e = (d.expenses || []).find(x => x.id === id);
     withLog(patchIn("expenses", id, { status: approved ? "posted" : "rejected", approvedBy: session.name }), `${approved ? "Approved" : "Rejected"} over-receipt expense ${e ? EXPENSE_CATEGORIES.find(x => x.id === e.category)?.label + " " + inr(e.amount) : ""}`);
   };
-  // RTO closes a head once actual costs are in; any recovery surplus just stays put.
   const setCategoryDone = (category, done) => {
     const label = EXPENSE_CATEGORIES.find(x => x.id === category)?.label;
-    withLog(p => ({ ...p, expenseClosed: { ...p.expenseClosed, [category]: done } }),
+    withLog(p => ({ ...p, expenseClosed: { ...(p.expenseClosed || {}), [category]: done } }),
       done ? `Marked ${label} as done — spent ${inr(postedSpend(d.expenses, category))} of ${inr(expenseCap(d, category))} collected` : `Reopened ${label} for further entries`);
   };
 
-  const priceSub = d.status === STATUS.PENDING ? "Locked — awaiting Admin decision" : postApproval ? (editMode ? "Editing — submit for Admin approval when done" : "Locked — click Edit above to change") : d.status === STATUS.CLOSED ? "Locked — deal is closed" : "Sales enters";
-  const canLogPayment = (isSales || isAccounts || isAdmin) && postApproval;
+  const priceSub = d.status === STATUS.PENDING ? "Locked — awaiting Admin decision" : isClosed ? (isSuperAdmin ? "Closed — Super Admin can reopen & edit anytime" : "Locked — deal is closed") : postApproval ? (editMode ? "Editing active" : isSuperAdmin ? "Super Admin can edit anytime" : "Locked — click Edit to request amendment") : "Sales enters";
+  const canLogPayment = (isSales || isAccounts || isAdminOrSuper) && (postApproval || isSuperAdmin);
   const pendingAmendments = (d.amendments || []).filter(a => a.status === "pending");
   const balanceDue = c.balance > 0;
 
   return (
     <>
-      <DealPrintSheet deal={d} totals={calc(d)} showOffice={isAdmin || isAccounts} session={session} />
+      <DealPrintSheet deal={d} totals={calc(d)} showOffice={isAdminOrSuper || isAccounts} session={session} />
       <div className="stack no-print" style={{ paddingBottom: 90 }}>
         <div className="flex between wrapf">
           <button className="lnk mu flex" onClick={onBack}><ArrowLeft size={15} /> All deals</button>
@@ -616,238 +738,348 @@ function DealEditor({ deal: d, deals, session, onUpdate, onBack, onDelete }) {
           </div>
         </div>
 
-      <div className="stats">
-        <div className="stat"><span className="lbl">Net on-road</span><b>{inr(c.netOnRoad)}</b></div>
-        <div className="stat"><span className="lbl">Collected</span><b>{inr(c.totalCollected)}</b></div>
-        <div className="stat" style={{ borderColor: balanceDue ? "#E3B79F" : "#BFDCC7" }}><span className="lbl">Balance</span><b className={balanceDue ? "warn" : "ok"}>{inr(c.balance)}</b></div>
-      </div>
-
-      {d.approval.status === "rejected" && d.approval.remarks && <Banner kind="bad"><b>Admin rejected this pricing:</b> {d.approval.remarks}</Banner>}
-      {d.status === STATUS.PENDING && <Banner>Submitted for approval — Customer, Vehicle, and Pricing are locked until Admin approves or rejects. No edits are possible right now, including by Admin.</Banner>}
-      {d.status === STATUS.DRAFT && (isSales || isAdmin) && <div className="flex" style={{ justifyContent: "flex-end" }}><button className="btn no xs" onClick={() => setConfirmDelete(true)}>Delete this draft</button></div>}
-
-      {pendingAmendments.length > 0 && (
-        <div className="card stack-s" style={{ background: "#FBF0D6", borderColor: "#EBD39A" }}>
-          <div className="h">Field change request awaiting approval</div>
-          {pendingAmendments.map(a => (
-            <div key={a.id} className="xp">
-              <div className="sm mute" style={{ marginBottom: 4 }}>Requested by {a.requestedBy} on {new Date(a.requestedAt).toLocaleString("en-IN")}</div>
-              <ul style={{ margin: 0, paddingLeft: 18 }}>
-                {a.changes.map((ch, i) => (
-                  <li key={i}><span className="tag mono">{ch.section}.{ch.field}</span> {typeof ch.oldValue === "object" ? "(list)" : String(ch.oldValue) || "—"} → <b>{typeof ch.newValue === "object" ? "(list)" : String(ch.newValue) || "—"}</b></li>
-                ))}
-              </ul>
-              {isAdmin ? (
-                <div className="flex" style={{ marginTop: 8 }}>
-                  <button className="btn go xs" onClick={() => reviewAmendment(a.id, true)}>Approve</button>
-                  <button className="btn no xs" onClick={() => reviewAmendment(a.id, false)}>Reject</button>
-                </div>
-              ) : <div className="sm mute" style={{ marginTop: 6 }}>Waiting on Admin — Customer, Vehicle, and On-road price fields are locked until this is approved or rejected.</div>}
-            </div>
-          ))}
+        <div className="stats">
+          <div className="stat"><span className="lbl">Net on-road</span><b>{inr(c.netOnRoad)}</b></div>
+          <div className="stat"><span className="lbl">Total collected</span><b>{inr(c.totalCollected)}</b></div>
+          {c.totalRefunded > 0 && <div className="stat"><span className="lbl">Total refunded</span><b className="bad">{inr(c.totalRefunded)}</b></div>}
+          <div className="stat" style={{ borderColor: balanceDue ? "#E3B79F" : "#BFDCC7" }}><span className="lbl">Balance</span><b className={balanceDue ? "warn" : "ok"}>{inr(c.balance)}</b></div>
         </div>
-      )}
 
-      {(isSales || isAdmin) && postApproval && !hasPendingAmendment && (
-        <div className="card flex between wrapf" style={{ padding: 12 }}>
-          {!editMode ? (
-            <>
-              <div className="sm" style={{ maxWidth: 560 }}>Customer, Vehicle, and Pricing are locked now that this deal is approved. {isAdmin ? "Click Edit to make changes directly as Admin." : "Only edit if something was entered wrong — it'll need Admin approval."}</div>
-              <button className="btn pri" onClick={() => setEditMode(true)}>Edit</button>
-            </>
-          ) : (
-            <>
-              <div className="sm" style={{ maxWidth: 560 }}>Editing unlocked. {isAdmin ? "Update details below and click Save changes (or Discard)." : coreDirty ? "You've made changes below — discard them or submit for Admin approval." : "Make your changes below, then submit for Admin approval (or discard to leave as-is)."}</div>
-              <div className="flex">
-                <button className="btn" onClick={discardEdits}>Discard changes</button>
-                {isAdmin ? (
-                  <button className="btn acc" onClick={saveAdminEdits}>Save changes</button>
-                ) : (
-                  <button className="btn acc" onClick={requestAmendment} disabled={!coreDirty}>Submit for approval</button>
-                )}
+        {d.approval.status === "rejected" && d.approval.remarks && <Banner kind="bad"><b>Admin rejected this pricing:</b> {d.approval.remarks}</Banner>}
+        {d.status === STATUS.PENDING && <Banner>Submitted for approval — Customer, Vehicle, and Pricing are awaiting review. {isSuperAdmin ? "As Super Admin, you can edit or decision anytime." : isAdmin ? "You can review and approve or reject below." : "Awaiting Admin decision."}</Banner>}
+        {d.status === STATUS.DRAFT && (isSales || isAdminOrSuper) && <div className="flex" style={{ justifyContent: "flex-end" }}><button className="btn no xs" onClick={() => setConfirmDelete(true)}>Delete this draft</button></div>}
+
+        {pendingAmendments.length > 0 && (
+          <div className="card stack-s" style={{ background: "#FBF0D6", borderColor: "#EBD39A" }}>
+            <div className="h">Field change request awaiting approval</div>
+            {pendingAmendments.map(a => (
+              <div key={a.id} className="xp">
+                <div className="sm mute" style={{ marginBottom: 4 }}>Requested by {a.requestedBy} on {new Date(a.requestedAt).toLocaleString("en-IN")}</div>
+                <ul style={{ margin: 0, paddingLeft: 18 }}>
+                  {a.changes.map((ch, i) => (
+                    <li key={i}><span className="tag mono">{ch.section}.{ch.field}</span> {typeof ch.oldValue === "object" ? "(list)" : String(ch.oldValue) || "—"} → <b>{typeof ch.newValue === "object" ? "(list)" : String(ch.newValue) || "—"}</b></li>
+                  ))}
+                </ul>
+                {isAdminOrSuper ? (
+                  <div className="flex" style={{ marginTop: 8 }}>
+                    <button className="btn go xs" onClick={() => reviewAmendment(a.id, true)}>Approve</button>
+                    <button className="btn no xs" onClick={() => reviewAmendment(a.id, false)}>Reject</button>
+                  </div>
+                ) : <div className="sm mute" style={{ marginTop: 6 }}>Waiting on Admin review.</div>}
               </div>
-            </>
+            ))}
+          </div>
+        )}
+
+        {/* Super Admin Edit & Reopen Controls */}
+        {isSuperAdmin && (
+          <div className="card flex between wrapf" style={{ padding: 12, background: "#FAF5FF", borderColor: "#D8B4FE" }}>
+            {!editMode ? (
+              <>
+                <div className="sm" style={{ maxWidth: 580 }}>
+                  <b style={{ color: "#6B21A8" }}>Super Admin Privilege:</b> You have exclusive privilege to reopen and edit this deal anytime.
+                </div>
+                <div className="flex">
+                  {(d.status === STATUS.CLOSED || d.status === STATUS.DELIVERED) && (
+                    <button className="btn acc" onClick={reopenDeal}><RotateCcw size={14} /> Reopen Deal</button>
+                  )}
+                  <button className="btn pri" onClick={() => setEditMode(true)}>Edit Deal Anytime</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="sm" style={{ maxWidth: 580 }}>
+                  <b style={{ color: "#6B21A8" }}>Super Admin Direct Editing:</b> Edit any customer, vehicle, pricing or retention fields below.
+                </div>
+                <div className="flex">
+                  <button className="btn" onClick={discardEdits}>Discard changes</button>
+                  <button className="btn acc" onClick={saveSuperAdminEdits}>Save Super Admin Changes</button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Sales post-approval amendment request */}
+        {isSales && postApproval && !hasPendingAmendment && (
+          <div className="card flex between wrapf" style={{ padding: 12 }}>
+            {!editMode ? (
+              <>
+                <div className="sm" style={{ maxWidth: 560 }}>Customer, Vehicle, and Pricing are locked now that this deal is approved. Only edit if something was entered wrong — it will need Admin approval.</div>
+                <button className="btn pri" onClick={() => setEditMode(true)}>Request Edit</button>
+              </>
+            ) : (
+              <>
+                <div className="sm" style={{ maxWidth: 560 }}>Editing unlocked. Make your changes below, then submit for Admin approval.</div>
+                <div className="flex">
+                  <button className="btn" onClick={discardEdits}>Discard changes</button>
+                  <button className="btn acc" onClick={requestAmendment} disabled={!coreDirty}>Submit for approval</button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Admin Review notice: Admin can only see and approve */}
+        {isAdmin && postApproval && (
+          <div className="card sm mute" style={{ padding: 10, background: "#F9F8F5" }}>
+            <b>Admin Review Mode:</b> As Administrator, you can view all deal specifications and approve pricing, amendments, or payments. Reopening or arbitrary direct editing is reserved for Super Admin.
+          </div>
+        )}
+
+        {/* Mandatory branch selection */}
+        <div className="card stack-s" style={{ borderColor: "#E3B79F" }}>
+          <div className="flex between wrapf">
+            <div>
+              <div className="flex"><span className="tag br">Step 1 · Mandatory</span><span className="h">Dealership branch</span></div>
+              <div className="sm mute" style={{ marginTop: 2 }}>Branch options mandatory to select in Sasaram, Bihiya, Buxas, Mohaniya.</div>
+            </div>
+            <span className="sm">Selected: <b style={{ color: "var(--acc)" }}>{normalizeBranch(d.branch) || "None"}</b></span>
+          </div>
+          {canTouch ? (
+            <div className="seg">
+              {BRANCHES.map(b => {
+                const on = normalizeBranch(d.branch) === b;
+                return (
+                  <button key={b} type="button" className={on ? "on" : ""} onClick={() => { if (!on) withLog(prev => ({ ...prev, branch: b }), `Updated branch to "${b}"`); }}>
+                    <span>{b}</span>{on ? <CheckCircle2 size={16} color="#D2481B" /> : <span className="ring" />}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="sub flex"><span className="lbl">Branch:</span><b>{normalizeBranch(d.branch)}</b><span className="sm mute" style={{ marginLeft: "auto" }}>Locked after approval</span></div>
           )}
         </div>
-      )}
 
-      {/* Mandatory branch selection */}
-      <div className="card stack-s" style={{ borderColor: "#E3B79F" }}>
-        <div className="flex between wrapf">
-          <div>
-            <div className="flex"><span className="tag br">Step 1 · Mandatory</span><span className="h">Dealership branch</span></div>
-            <div className="sm mute" style={{ marginTop: 2 }}>Branch options mandatory to select by the sales man in Sasaram, Bihiya, Buxas, Mohaniya.</div>
+        <Section title="Customer & Company Details" subtitle="Customer details" accent="#3B82C4">
+          {CUSTOMER_FIELDS.map(([k, l]) => <Field key={k} label={l} value={coreDraft.customer[k]} onChange={v => editCore("customer", k, v)} onCommit={(o, n) => editCoreCommit("customer", k, o, n)} readOnly={!canTouch} />)}
+        </Section>
+
+        <Section title="Vehicle" subtitle="Vehicle details" accent="#3E9B63">
+          {VEHICLE_FIELDS.map(([k, l]) => <Field key={k} label={l} value={coreDraft.vehicle[k]} onChange={v => editCore("vehicle", k, v)} onCommit={(o, n) => editCoreCommit("vehicle", k, o, n)} readOnly={!canTouch} />)}
+        </Section>
+
+        <Section title="On-road price" subtitle={priceSub} accent="#D2481B">
+          {PRICE_ROWS.map(([k, l]) =>
+            k === "@otherDiscounts" ? (
+              <OtherDiscountsEditor key={k} value={coreDraft.pricing.otherDiscounts} onChange={list => editCore("pricing", "otherDiscounts", list)} onCommit={(o, n) => editCoreCommit("pricing", "otherDiscounts", o, n)} readOnly={!canTouch} />
+            ) : k[0] === "=" ? (
+              <Field key={k} label={l} prefix="₹" value={c[k.slice(1)].toFixed(0)} readOnly />
+            ) : (
+              <Field key={k} label={l} prefix="₹" value={coreDraft.pricing[k]} onChange={v => editCore("pricing", k, v)} onCommit={(o, n) => editCoreCommit("pricing", k, o, n)} readOnly={!canTouch} />
+            ))}
+        </Section>
+
+        {/* Customer payment log */}
+        <Card title="Customer payment log" right={canLogPayment && <button className="btn pri xs" onClick={addPayment}><Plus size={14} /> Log payment</button>}>
+          {(d.paymentLog || []).length === 0 ? <Empty>No payments logged yet.</Empty> : (
+            <div className="tblwrap">
+              <table className="tbl">
+                <thead><tr>{["Date of receipt", "Mode", "Reference", "Amount", "Entered by", "Status", ""].map(h => <th key={h}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {(d.paymentLog || []).map(e => {
+                    const st = paymentStatus(e);
+                    const src = e.mode === ADMIN_ONLY_PAYMENT_MODE && e.sourceDealId && deals.find(dl => dl.id === e.sourceDealId);
+                    return (
+                      <tr key={e.id}>
+                        <td className="mono">{e.date}</td>
+                        <td>{e.mode}{src && <div className="sm mute">from {formatParty(src.customer) || src.id}</div>}</td>
+                        <td className="mono">{e.reference || "—"}</td>
+                        <td className="mono"><b>{inr(e.amount)}</b></td>
+                        <td>{e.enteredBy}</td>
+                        <td>
+                          {st === "verified" && <span className="ok flex" style={{ fontWeight: 700 }}><CheckCircle2 size={14} /> Verified</span>}
+                          {st === "pending" && <span className="warn">Unverified</span>}
+                          {st === "rejected" && <span className="bad flex" style={{ fontWeight: 700 }}><XCircle size={14} /> Rejected{e.rejectionReason ? `: ${e.rejectionReason}` : ""}</span>}
+                        </td>
+                        <td>{isAccounts && st === "pending" && <div className="flex"><button className="lnk ok" onClick={() => verifyPayment(e.id)}>Verify</button><button className="lnk bad" onClick={() => rejectPayment(e.id)}>Reject</button></div>}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <div className="flex wrapf sm" style={{ gap: 18, marginTop: 12 }}>
+            <span><span className="mute">Total collected: </span><b>{inr(c.totalCollected)}</b></span>
+            {c.approvedAdjustments > 0 && <span><span className="mute">Approved adjustments: </span><b>{inr(c.approvedAdjustments)}</b></span>}
+            {c.pendingAdjustments > 0 && <span className="warn">Pending adjustments: <b>{inr(c.pendingAdjustments)}</b></span>}
+            <span><span className="mute">Net on-road price: </span><b>{inr(c.netOnRoad)}</b></span>
+            <span><span className="mute">Balance: </span><b className={balanceDue ? "warn" : "ok"}>{inr(c.balance)}</b></span>
           </div>
-          <span className="sm">Selected: <b style={{ color: "var(--acc)" }}>{normalizeBranch(d.branch) || "None"}</b></span>
-        </div>
-        {canTouch ? (
-          <div className="seg">
-            {BRANCHES.map(b => {
-              const on = normalizeBranch(d.branch) === b;
-              return (
-                <button key={b} type="button" className={on ? "on" : ""} onClick={() => { if (!on) withLog(prev => ({ ...prev, branch: b }), `Updated branch to "${b}"`); }}>
-                  <span>{b}</span>{on ? <CheckCircle2 size={16} color="#D2481B" /> : <span className="ring" />}
-                </button>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="sub flex"><span className="lbl">Branch:</span><b>{normalizeBranch(d.branch)}</b><span className="sm mute" style={{ marginLeft: "auto" }}>Locked after approval</span></div>
-        )}
-      </div>
-
-      <Section title="Customer & Company Details" subtitle="Filled by Sales" accent="#3B82C4">
-        {CUSTOMER_FIELDS.map(([k, l]) => <Field key={k} label={l} value={coreDraft.customer[k]} onChange={v => editCore("customer", k, v)} onCommit={(o, n) => editCoreCommit("customer", k, o, n)} readOnly={!canTouch} />)}
-      </Section>
-
-      <Section title="Vehicle" subtitle="Filled by Sales" accent="#3E9B63">
-        {VEHICLE_FIELDS.map(([k, l]) => <Field key={k} label={l} value={coreDraft.vehicle[k]} onChange={v => editCore("vehicle", k, v)} onCommit={(o, n) => editCoreCommit("vehicle", k, o, n)} readOnly={!canTouch} />)}
-      </Section>
-
-      <Section title="On-road price" subtitle={priceSub} accent="#D2481B">
-        {PRICE_ROWS.map(([k, l]) =>
-          k === "@otherDiscounts" ? (
-            <OtherDiscountsEditor key={k} value={coreDraft.pricing.otherDiscounts} onChange={list => editCore("pricing", "otherDiscounts", list)} onCommit={(o, n) => editCoreCommit("pricing", "otherDiscounts", o, n)} readOnly={!canTouch} />
-          ) : k[0] === "=" ? (
-            <Field key={k} label={l} prefix="₹" value={c[k.slice(1)].toFixed(0)} readOnly />
-          ) : (
-            <Field key={k} label={l} prefix="₹" value={coreDraft.pricing[k]} onChange={v => editCore("pricing", k, v)} onCommit={(o, n) => editCoreCommit("pricing", k, o, n)} readOnly={!canTouch} />
-          ))}
-      </Section>
-
-      <Card title="Customer payment log" right={canLogPayment && <button className="btn pri xs" onClick={addPayment}><Plus size={14} /> Log payment</button>}>
-        {d.paymentLog.length === 0 ? <Empty>No payments logged yet.</Empty> : (
-          <div className="tblwrap">
-            <table className="tbl">
-              <thead><tr>{["Date of receipt", "Mode", "Reference", "Amount", "Entered by", "Status", ""].map(h => <th key={h}>{h}</th>)}</tr></thead>
-              <tbody>
-                {d.paymentLog.map(e => {
-                  const st = paymentStatus(e);
-                  const src = e.mode === ADMIN_ONLY_PAYMENT_MODE && e.sourceDealId && deals.find(dl => dl.id === e.sourceDealId);
-                  return (
-                    <tr key={e.id}>
-                      <td className="mono">{e.date}</td>
-                      <td>{e.mode}{src && <div className="sm mute">from {formatParty(src.customer) || src.id}</div>}</td>
-                      <td className="mono">{e.reference || "—"}</td>
-                      <td className="mono"><b>{inr(e.amount)}</b></td>
-                      <td>{e.enteredBy}</td>
-                      <td>
-                        {st === "verified" && <span className="ok flex" style={{ fontWeight: 700 }}><CheckCircle2 size={14} /> Verified</span>}
-                        {st === "pending" && <span className="warn">Unverified</span>}
-                        {st === "rejected" && <span className="bad flex" style={{ fontWeight: 700 }}><XCircle size={14} /> Rejected{e.rejectionReason ? `: ${e.rejectionReason}` : ""}</span>}
-                      </td>
-                      <td>{isAccounts && st === "pending" && <div className="flex"><button className="lnk ok" onClick={() => verifyPayment(e.id)}>Verify</button><button className="lnk bad" onClick={() => rejectPayment(e.id)}>Reject</button></div>}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-        <div className="flex wrapf sm" style={{ gap: 18, marginTop: 12 }}>
-          <span><span className="mute">Total collected: </span><b>{inr(c.totalCollected)}</b></span>
-          {c.approvedAdjustments > 0 && <span><span className="mute">Approved adjustments: </span><b>{inr(c.approvedAdjustments)}</b></span>}
-          {c.pendingAdjustments > 0 && <span className="warn">Pending adjustments: <b>{inr(c.pendingAdjustments)}</b></span>}
-          <span><span className="mute">Net on-road price: </span><b>{inr(c.netOnRoad)}</b></span>
-          <span><span className="mute">Balance: </span><b className={balanceDue ? "warn" : "ok"}>{inr(c.balance)}</b></span>
-        </div>
-        {(d.adjustments || []).length > 0 && (
-          <div className="stack-s" style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--line)" }}>
-            <div className="lbl">Receipt adjustments</div>
-            {d.adjustments.map(a => {
-              const [label, color, bg] = ADJ_META[a.status] || ADJ_META.pending;
-              return (
-                <div key={a.id} className="ent">
-                  <div><b>{inr(a.amount)}</b> <span className="mute">— {a.reason || "no reason given"} · {a.date} · by {a.enteredBy}</span></div>
-                  <div className="flex">
-                    <Chip color={color} bg={bg}>{label}</Chip>
-                    {isAdmin && a.status === "pending" && <><button className="lnk ok" onClick={() => reviewAdjustment(a.id, true)}>Approve</button><button className="lnk bad" onClick={() => reviewAdjustment(a.id, false)}>Reject</button></>}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-        {canLogPayment && <button className="lnk" style={{ marginTop: 12 }} onClick={addAdjustment}>+ Add receipt adjustment (rounding off, last-minute discount)</button>}
-      </Card>
-
-      {(isRto || isAdmin) && (
-        <Card title="RTO / Registration expenses" icon={ShieldCheck}>
-          <div className="sm mute" style={{ marginBottom: 12 }}>Referenced by chassis no. <b>{chassis || "—"}</b>. Capped at what was collected for each head — going over needs Admin approval.</div>
-          <div className="stack-s">
-            {EXPENSE_CATEGORIES.map(cat => {
-              const cap = num(d.pricing[cat.pricingField]);
-              const entries = d.expenses.filter(e => e.category === cat.id);
-              const posted = sum(entries.filter(e => e.status === "posted"), e => e.amount);
-              const remaining = cap - posted;
-              const closed = !!(d.expenseClosed || {})[cat.id];
-              return (
-                <div key={cat.id} className={`xp ${closed ? "done" : ""}`}>
-                  <div className="flex between wrapf">
-                    <div>
-                      <div className="flex" style={{ fontWeight: 700 }}>{cat.label}{closed && <Chip color="#25683A" bg="#D9EDDD" icon={CheckCircle2}>Done</Chip>}</div>
-                      <div className="sm mute">Collected {inr(cap)} · Spent {inr(posted)} · <span className={remaining < 0 ? "warn" : ""} style={remaining < 0 ? { fontWeight: 700 } : {}}>{remaining < 0 ? `Over by ${inr(-remaining)}` : `Retained ${inr(remaining)}`}</span></div>
+          {(d.adjustments || []).length > 0 && (
+            <div className="stack-s" style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--line)" }}>
+              <div className="lbl">Receipt adjustments</div>
+              {d.adjustments.map(a => {
+                const [label, color, bg] = ADJ_META[a.status] || ADJ_META.pending;
+                return (
+                  <div key={a.id} className="ent">
+                    <div><b>{inr(a.amount)}</b> <span className="mute">— {a.reason || "no reason given"} · {a.date} · by {a.enteredBy}</span></div>
+                    <div className="flex">
+                      <Chip color={color} bg={bg}>{label}</Chip>
+                      {isAdminOrSuper && a.status === "pending" && <><button className="lnk ok" onClick={() => reviewAdjustment(a.id, true)}>Approve</button><button className="lnk bad" onClick={() => reviewAdjustment(a.id, false)}>Reject</button></>}
                     </div>
-                    {isRto && d.status !== STATUS.DRAFT && !closed && (
-                      <div className="flex">
-                        <button className="btn pri xs" onClick={() => addExpense(cat.id)}><Plus size={13} /> Add expense</button>
-                        <button className="btn xs" onClick={() => setCategoryDone(cat.id, true)}>Mark as done</button>
-                      </div>
-                    )}
-                    {isAdmin && closed && <button className="lnk mu" onClick={() => setCategoryDone(cat.id, false)}>Reopen</button>}
                   </div>
-                  {entries.length > 0 && (
-                    <div className="stack-s" style={{ marginTop: 8 }}>
-                      {entries.map(e => (
-                        <div key={e.id} className="ent">
-                          <div><b>{inr(e.amount)}</b> <span className="mute">by {e.enteredBy}{e.remarks && ` — ${e.remarks}`}</span></div>
-                          <div className="flex">
-                            <Chip {...EXPENSE_STATUS_META[e.status]}>{EXPENSE_STATUS_META[e.status].label}</Chip>
-                            {isAdmin && e.status === "pending_approval" && <><button className="lnk ok" onClick={() => reviewExpense(e.id, true)}>Approve</button><button className="lnk bad" onClick={() => reviewExpense(e.id, false)}>Reject</button></>}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+          )}
+          {canLogPayment && <button className="lnk" style={{ marginTop: 12 }} onClick={addAdjustment}>+ Add receipt adjustment (rounding off, last-minute discount)</button>}
+        </Card>
+
+        {/* Requirement 4: Customer Refund log just below Customer payment log */}
+        <Card
+          title="Customer Refund log"
+          right={canLogPayment && <button className="btn pri xs" onClick={addRefund}><Plus size={14} /> Log refund</button>}
+        >
+          {(d.refundLog || []).length === 0 ? <Empty>No refunds logged yet.</Empty> : (
+            <div className="tblwrap">
+              <table className="tbl">
+                <thead><tr>{["Date of refund", "Refund to / Option", "Mode", "Reference", "Amount", "Entered by", "Status", ""].map(h => <th key={h}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {(d.refundLog || []).map(e => {
+                    const st = paymentStatus(e);
+                    return (
+                      <tr key={e.id}>
+                        <td className="mono">{e.date}</td>
+                        <td>
+                          <span
+                            className="tag"
+                            style={{
+                              fontWeight: 700,
+                              background: e.refundType === "Body Fabricator" ? "#EBF3FF" : e.refundType === "Retention Amount" ? "#FEF3C7" : "#F3E8FF",
+                              color: e.refundType === "Body Fabricator" ? "#1D4ED8" : e.refundType === "Retention Amount" ? "#B45309" : "#6D28D9",
+                            }}
+                          >
+                            {e.refundType || "Customer"}
+                          </span>
+                          {e.remarks && <div className="sm mute">{e.remarks}</div>}
+                        </td>
+                        <td>{e.mode}</td>
+                        <td className="mono">{e.reference || "—"}</td>
+                        <td className="mono"><b className="bad">{inr(e.amount)}</b></td>
+                        <td>{e.enteredBy}</td>
+                        <td>
+                          {st === "verified" && <span className="ok flex" style={{ fontWeight: 700 }}><CheckCircle2 size={14} /> Verified</span>}
+                          {st === "pending" && <span className="warn">Unverified</span>}
+                          {st === "rejected" && <span className="bad flex" style={{ fontWeight: 700 }}><XCircle size={14} /> Rejected{e.rejectionReason ? `: ${e.rejectionReason}` : ""}</span>}
+                        </td>
+                        <td>{isAccounts && st === "pending" && <div className="flex"><button className="lnk ok" onClick={() => verifyRefund(e.id)}>Verify</button><button className="lnk bad" onClick={() => rejectRefund(e.id)}>Reject</button></div>}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <div className="flex wrapf sm" style={{ gap: 18, marginTop: 12 }}>
+            <span><span className="mute">Total refunded: </span><b className="bad">{inr(c.totalRefunded)}</b></span>
+            <span><span className="mute">Net customer collections: </span><b>{inr(c.netCollected)}</b></span>
+            <span><span className="mute">Net on-road price: </span><b>{inr(c.netOnRoad)}</b></span>
+            <span><span className="mute">Effective balance: </span><b className={balanceDue ? "warn" : "ok"}>{inr(c.balance)}</b></span>
           </div>
         </Card>
-      )}
 
-      {(isAdmin || isAccounts) && (
-        <Section title="Office use" subtitle="Admin / Accounts" defaultOpen={false} accent="#7A7468">
-          {OFFICE_FIELDS.map(([k, l]) => (
-            <Field key={k} label={l} prefix={k !== "remarks" && k !== "bodyFabName" ? "₹" : undefined} value={d.officeUse[k]} onChange={v => set("officeUse", k, v)} onCommit={(o, n) => commitFieldChange("officeUse", k, o, n)} readOnly={d.status === STATUS.CLOSED} />
-          ))}
-        </Section>
-      )}
+        {(isRto || isAdminOrSuper) && (
+          <Card title="RTO / Registration expenses" icon={ShieldCheck}>
+            <div className="sm mute" style={{ marginBottom: 12 }}>Referenced by chassis no. <b>{chassis || "—"}</b>. Capped at what was collected for each head — going over needs Admin approval.</div>
+            <div className="stack-s">
+              {EXPENSE_CATEGORIES.map(cat => {
+                const cap = num(d.pricing[cat.pricingField]);
+                const entries = (d.expenses || []).filter(e => e.category === cat.id);
+                const posted = sum(entries.filter(e => e.status === "posted"), e => e.amount);
+                const remaining = cap - posted;
+                const closed = !!(d.expenseClosed || {})[cat.id];
+                return (
+                  <div key={cat.id} className={`xp ${closed ? "done" : ""}`}>
+                    <div className="flex between wrapf">
+                      <div>
+                        <div className="flex" style={{ fontWeight: 700 }}>{cat.label}{closed && <Chip color="#25683A" bg="#D9EDDD" icon={CheckCircle2}>Done</Chip>}</div>
+                        <div className="sm mute">Collected {inr(cap)} · Spent {inr(posted)} · <span className={remaining < 0 ? "warn" : ""} style={remaining < 0 ? { fontWeight: 700 } : {}}>{remaining < 0 ? `Over by ${inr(-remaining)}` : `Retained ${inr(remaining)}`}</span></div>
+                      </div>
+                      {isRto && d.status !== STATUS.DRAFT && !closed && (
+                        <div className="flex">
+                          <button className="btn pri xs" onClick={() => addExpense(cat.id)}><Plus size={13} /> Add expense</button>
+                          <button className="btn xs" onClick={() => setCategoryDone(cat.id, true)}>Mark as done</button>
+                        </div>
+                      )}
+                      {isAdminOrSuper && closed && <button className="lnk mu" onClick={() => setCategoryDone(cat.id, false)}>Reopen</button>}
+                    </div>
+                    {entries.length > 0 && (
+                      <div className="stack-s" style={{ marginTop: 8 }}>
+                        {entries.map(e => (
+                          <div key={e.id} className="ent">
+                            <div><b>{inr(e.amount)}</b> <span className="mute">by {e.enteredBy}{e.remarks && ` — ${e.remarks}`}</span></div>
+                            <div className="flex">
+                              <Chip {...EXPENSE_STATUS_META[e.status]}>{EXPENSE_STATUS_META[e.status].label}</Chip>
+                              {isAdminOrSuper && e.status === "pending_approval" && <><button className="lnk ok" onClick={() => reviewExpense(e.id, true)}>Approve</button><button className="lnk bad" onClick={() => reviewExpense(e.id, false)}>Reject</button></>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        )}
 
-      <div className="dock">
-        <span className="sm mute">Changes save automatically.</span>
-        <div className="flex">
-          {(isSales || isAdmin) && preApproval && (
-            <button
-              className="btn acc"
-              onClick={isAdmin ? () => withLog(p => ({ ...p, status: STATUS.APPROVED, approval: { status: "approved", by: session.name, at: stamp(), remarks: "Directly approved by Admin" } }), "Pricing approved directly by Admin") : submitForApproval}
-            >
-              {isAdmin ? "Approve & Activate deal" : "Submit for approval"}
-            </button>
-          )}
-          {isAdmin && d.status === STATUS.PENDING && <><button className="btn no" onClick={reject}>Reject</button><button className="btn go" onClick={approve}>Approve pricing</button></>}
-          {isAdmin && d.status === STATUS.APPROVED && <button className="btn pri" onClick={markDelivered}>Mark delivered</button>}
-          {isAdmin && postApproval && <button className="btn go" onClick={closeDeal} disabled={balanceDue} title={balanceDue ? "Balance must be cleared before closing" : ""}>Close deal</button>}
-          {!isAdmin && postApproval && !balanceDue && <span className="sm mute">Balance cleared — waiting on Admin to close.</span>}
-          {!isAdmin && d.status === STATUS.DELIVERED && balanceDue && <span className="sm mute">Delivered — balance still pending (e.g. financer payment).</span>}
+        {(isAdminOrSuper || isAccounts) && (
+          <Section title="Office use" subtitle="Admin / Accounts" defaultOpen={false} accent="#7A7468">
+            {OFFICE_FIELDS.map(([k, l]) => (
+              <Field key={k} label={l} prefix={k !== "remarks" && k !== "bodyFabName" ? "₹" : undefined} value={d.officeUse[k]} onChange={v => set("officeUse", k, v)} onCommit={(o, n) => commitFieldChange("officeUse", k, o, n)} readOnly={d.status === STATUS.CLOSED && !isSuperAdmin} />
+            ))}
+          </Section>
+        )}
+
+        <div className="dock">
+          <span className="sm mute">Changes save automatically.</span>
+          <div className="flex">
+            {preApproval && (
+              <>
+                {isSales && <button className="btn acc" onClick={submitForApproval}>Submit for approval</button>}
+                {isAdminOrSuper && (
+                  <button
+                    className="btn acc"
+                    onClick={() => withLog(p => ({ ...p, status: STATUS.APPROVED, approval: { status: "approved", by: session.name, at: stamp(), remarks: isSuperAdmin ? "Directly approved by Super Admin" : "Directly approved by Admin" } }), isSuperAdmin ? "Pricing approved directly by Super Admin" : "Pricing approved directly by Admin")}
+                  >
+                    Approve &amp; Activate deal
+                  </button>
+                )}
+              </>
+            )}
+            {isAdminOrSuper && d.status === STATUS.PENDING && (
+              <>
+                <button className="btn no" onClick={reject}>Reject</button>
+                <button className="btn go" onClick={approve}>Approve pricing</button>
+              </>
+            )}
+            {isAdminOrSuper && d.status === STATUS.APPROVED && (
+              <button className="btn pri" onClick={markDelivered}>Mark delivered</button>
+            )}
+            {isAdminOrSuper && postApproval && (
+              <button className="btn go" onClick={closeDeal} disabled={balanceDue} title={balanceDue ? "Balance must be cleared before closing" : ""}>
+                Close deal
+              </button>
+            )}
+            {/* Super Admin Reopen Button */}
+            {isSuperAdmin && (d.status === STATUS.CLOSED || d.status === STATUS.DELIVERED || d.status === STATUS.APPROVED) && (
+              <button className="btn acc" onClick={reopenDeal} title="Reopen deal anytime (Super Admin)">
+                <RotateCcw size={14} /> Reopen Deal
+              </button>
+            )}
+            {!isAdminOrSuper && postApproval && !balanceDue && <span className="sm mute">Balance cleared — waiting on Admin to close.</span>}
+            {!isAdminOrSuper && d.status === STATUS.DELIVERED && balanceDue && <span className="sm mute">Delivered — balance still pending (e.g. financer payment).</span>}
+          </div>
         </div>
-      </div>
 
-      {modal && <ModalForm {...modal} onClose={() => setModal(null)} />}
-      {confirmDelete && (
-        <ModalForm title="Delete this draft?" message={`This permanently removes deal ${d.id}${chassis ? ` (chassis ${chassis})` : ""}. This can't be undone.`} fields={[]} onSubmit={() => { onDelete(); }} onClose={() => setConfirmDelete(false)} />
-      )}
-    </div>
+        {modal && <ModalForm {...modal} onClose={() => setModal(null)} />}
+        {confirmDelete && (
+          <ModalForm title="Delete this draft?" message={`This permanently removes deal ${d.id}${chassis ? ` (chassis ${chassis})` : ""}. This can't be undone.`} fields={[]} onSubmit={() => { onDelete(); }} onClose={() => setConfirmDelete(false)} />
+        )}
+      </div>
     </>
   );
 }
@@ -894,7 +1126,7 @@ function DealsList({ deals, session, onOpen, onNew }) {
             </span>
           )}
         </div>
-        {onNew && (session.role === "sales" || session.role === "admin") && <button className="btn acc" onClick={onNew}><Plus size={15} /> New deal</button>}
+        {onNew && (session.role === "sales" || session.role === "admin" || session.role === "superadmin") && <button className="btn acc" onClick={onNew}><Plus size={15} /> New deal</button>}
       </div>
       {filtered.length === 0 ? <div className="center">{isSales ? "You have no deals matching these filters yet." : "No deals match these filters yet."}</div> : (
         <div className="stack-s">
@@ -913,6 +1145,7 @@ function DealsList({ deals, session, onOpen, onNew }) {
                     <span className="mono">{d.id}</span>
                     {d.vehicle.chassisNo && <span>· Chassis <span className="mono">{d.vehicle.chassisNo}</span></span>}
                     <span>· Net {inr(c.netOnRoad)} · Balance {inr(c.balance)}</span>
+                    {c.totalRefunded > 0 && <span className="bad">· Refunded {inr(c.totalRefunded)}</span>}
                   </div>
                 </div>
                 <div className="flex"><StatusBadge status={d.status} /><ChevronRight size={16} color="#B8B1A2" /></div>
@@ -926,7 +1159,7 @@ function DealsList({ deals, session, onOpen, onNew }) {
 }
 
 /* ====================================================================== */
-/*  Approvals (Admin) · Payments to verify (Accounts) · Audit trail        */
+/*  Approvals (Admin / Super Admin) · Payments to verify · Audit trail    */
 /* ====================================================================== */
 
 function Queue({ title, items, onOpen }) {
@@ -1064,10 +1297,19 @@ function NewDealModal({ isOpen, onClose, onCreate, session }) {
     <div className="scrim">
       <div className="modal lg">
         <div className="mhead">
-          <div>
-            <div className="flex sm" style={{ color: "#E8A58A", letterSpacing: ".1em", textTransform: "uppercase", fontWeight: 700 }}><Truck size={14} /> Tata Punya ERP · New Sales Deal</div>
-            <div className="h" style={{ fontSize: 24, marginTop: 4 }}>Initialize deal</div>
-            <div className="sm" style={{ color: "#A9A293" }}>Select mandatory dealership branch (Sasaram, Bihiya, Buxas, Mohaniya).</div>
+          <div className="flex" style={{ gap: 14 }}>
+            <img
+              src="/punya-logo.png"
+              alt="Punya Autowheels Pvt. Ltd."
+              style={{ height: 42, width: "auto", objectFit: "contain", background: "#fff", padding: "2px 6px", borderRadius: 6 }}
+            />
+            <div>
+              <div className="flex sm" style={{ color: "#E8A58A", letterSpacing: ".1em", textTransform: "uppercase", fontWeight: 700 }}>
+                Punya Autowheels Pvt. Ltd. · New Deal
+              </div>
+              <div className="h" style={{ fontSize: 22, marginTop: 2 }}>Initialize Deal Sheet</div>
+              <div className="sm" style={{ color: "#A9A293" }}>Select mandatory dealership branch (Sasaram, Bihiya, Buxas, Mohaniya).</div>
+            </div>
           </div>
           <button type="button" onClick={onClose}><XCircle size={20} /></button>
         </div>
@@ -1085,7 +1327,7 @@ function NewDealModal({ isOpen, onClose, onCreate, session }) {
             </div>
           </div>
           <div className="stack-s" style={{ paddingTop: 12, borderTop: "1px solid var(--line)" }}>
-            <div className="flex between"><span className="lbl" style={{ color: "var(--ink)" }}>2. Company name & customer info</span><span className="sm mute">Can also edit in deal editor</span></div>
+            <div className="flex between"><span className="lbl" style={{ color: "var(--ink)" }}>2. Company name &amp; customer info</span><span className="sm mute">Can also edit in deal editor</span></div>
             <div className="two">
               {input("companyName", "Company Name", "Company / Firm name")}
               {input("gstNo", "GST No. (Optional)", "15-digit GSTIN", { upper: true, className: "mono" })}
@@ -1095,7 +1337,7 @@ function NewDealModal({ isOpen, onClose, onCreate, session }) {
           </div>
           <div className="flex" style={{ justifyContent: "flex-end", paddingTop: 12, borderTop: "1px solid var(--line)" }}>
             <button type="button" className="btn" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn acc" disabled={!branch}>Create Deal & Open <ChevronRight size={15} /></button>
+            <button type="submit" className="btn acc" disabled={!branch}>Create Deal &amp; Open <ChevronRight size={15} /></button>
           </div>
         </form>
       </div>
@@ -1108,6 +1350,7 @@ function NewDealModal({ isOpen, onClose, onCreate, session }) {
 /* ====================================================================== */
 
 const ROLE_TABS = {
+  superadmin: [["list", "All Deals", ClipboardCheck], ["approvals", "Approvals", ShieldCheck], ["toverify", "To Verify", CheckCircle2], ["reports", "Reports", BarChart3], ["audit", "Audit Trail", FileText], ["users", "User Management", Users]],
   admin: [["list", "All Deals", ClipboardCheck], ["approvals", "Approvals", ShieldCheck], ["toverify", "To Verify", CheckCircle2], ["reports", "Reports", BarChart3], ["audit", "Audit Trail", FileText], ["users", "User Management", Users]],
   sales: [["list", "My Deals", ClipboardCheck], ["reports", "My Reports", BarChart3]],
   accounts: [["toverify", "Payments To Verify", CheckCircle2], ["list", "Deals Ledger", ClipboardCheck], ["reports", "Financial Reports", BarChart3]],
@@ -1200,7 +1443,7 @@ export default function App() {
 
   const paymentUpdate = (dealId, paymentId, patch, noteFn) =>
     handleUpdateDeal(dealId, p => {
-      const entry = p.paymentLog.find(e => e.id === paymentId);
+      const entry = (p.paymentLog || []).find(e => e.id === paymentId);
       return { ...patchIn("paymentLog", paymentId, patch)(p), activity: [...(p.activity || []), logEntry(session.name, session.role, noteFn(entry ? inr(entry.amount) + " via " + entry.mode : ""))] };
     });
   const verifyPaymentFor = (dealId, paymentId) => paymentUpdate(dealId, paymentId, { status: "verified", verifiedBy: session.name }, l => `Verified payment ${l}`);
@@ -1210,20 +1453,30 @@ export default function App() {
     return (
       <div className="erp" style={{ display: "grid", placeItems: "center", background: "#191714", color: "#A9A293" }}>
         <style>{CSS}</style>
-        <div style={{ textAlign: "center" }}><div className="spin" /><div className="mono sm">Initializing Tata Punya ERP Workspace…</div></div>
+        <div style={{ textAlign: "center" }}>
+          <img
+            src="/punya-logo.png"
+            alt="Punya Autowheels Pvt. Ltd."
+            style={{ height: 48, width: "auto", margin: "0 auto 16px", background: "#fff", padding: "4px 8px", borderRadius: 8 }}
+          />
+          <div className="spin" />
+          <div className="mono sm">Initializing Punya Autowheels Pvt. Ltd. ERP Workspace…</div>
+        </div>
       </div>
     );
   }
   if (!session) return <LoginPage onLoginSuccess={setSession} />;
 
+  const isSuperAdmin = session.role === "superadmin";
+  const isAdmin = session.role === "admin";
+  const isAdminOrSuper = isAdmin || isSuperAdmin;
   const isSales = session.role === "sales";
   const userDeals = isSales ? filterDealsForUser(deals, session) : deals;
   const openDeal = deals.find(d => d.id === openId);
   const isAuthorizedForDeal = openDeal ? (isSales ? isDealForUser(openDeal, session) : true) : false;
   const roleMeta = ROLES.find(r => r.id === session.role) || { label: session.role, color: "#D2481B" };
   const roleTabs = ROLE_TABS[session.role] || [];
-  const isAdmin = session.role === "admin";
-  const canCreate = isSales || isAdmin;
+  const canCreate = isSales || isAdminOrSuper;
   const jumpToDeal = id => { setOpenId(id); setTab("list"); };
 
   let body;
@@ -1246,23 +1499,38 @@ export default function App() {
       body = <DealEditor deal={openDeal} deals={deals} session={session} onUpdate={fn => handleUpdateDeal(openDeal.id, fn)} onBack={() => setOpenId(null)} onDelete={() => handleDeleteDeal(openDeal.id)} />;
     }
   }
-  else if (tab === "users" && isAdmin) body = <UserManagement currentAdmin={session} />;
+  else if (tab === "users" && isAdminOrSuper) body = <UserManagement currentAdmin={session} />;
   else if (tab === "list") body = <DealsList deals={userDeals} session={session} onOpen={setOpenId} onNew={canCreate ? () => setNewDealModalOpen(true) : undefined} />;
   else if (tab === "reports") body = <ReportsDashboard deals={userDeals} session={session} onOpen={setOpenId} />;
-  else if (tab === "approvals" && isAdmin) body = <Approvals deals={deals} onOpen={jumpToDeal} />;
+  else if (tab === "approvals" && isAdminOrSuper) body = <Approvals deals={deals} onOpen={jumpToDeal} />;
   else if (tab === "toverify") body = <PaymentsToVerify deals={deals} onVerify={verifyPaymentFor} onReject={rejectPaymentFor} onOpen={jumpToDeal} />;
-  else if (tab === "audit" && isAdmin) body = <AuditTrail deals={deals} onOpen={jumpToDeal} />;
+  else if (tab === "audit" && isAdminOrSuper) body = <AuditTrail deals={deals} onOpen={jumpToDeal} />;
   else body = <div className="center">Please select an authorized tab.</div>;
 
   return (
     <div className="erp">
       <style>{CSS}</style>
 
+      {/* Header with actual Punya Autowheels logo and official company name */}
       <header className="top">
         <div className="flex" style={{ gap: 12 }}>
-          <div className="mark"><Truck size={18} /></div>
-          <div className="flex">
-            <span className="brand disp">TATA PUNYA</span>
+          <img
+            src="/punya-logo.png"
+            alt="Punya Autowheels Pvt. Ltd."
+            style={{
+              height: 38,
+              width: "auto",
+              maxHeight: 38,
+              objectFit: "contain",
+              background: "#fff",
+              padding: "2px 6px",
+              borderRadius: 8,
+              border: "1px solid #3A362F",
+              boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
+            }}
+          />
+          <div className="flex" style={{ gap: 8 }}>
+            <span className="brand disp">PUNYA AUTOWHEELS PVT. LTD.</span>
             <span className="env">ERP</span>
           </div>
         </div>

@@ -11,7 +11,7 @@ const UserSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: true,
+      default: "",
     },
     name: {
       type: String,
@@ -20,7 +20,7 @@ const UserSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["admin", "sales", "accounts", "rto"],
+      enum: ["superadmin", "admin", "sales", "accounts", "rto"],
       required: true,
     },
     branch: {
@@ -30,6 +30,16 @@ const UserSchema = new mongoose.Schema(
     isActive: {
       type: Boolean,
       default: true,
+    },
+    credentialsDeleted: {
+      type: Boolean,
+      default: false,
+    },
+    deletedAt: {
+      type: Date,
+    },
+    passwordResetAt: {
+      type: Date,
     },
   },
   { timestamps: true }

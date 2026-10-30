@@ -21,18 +21,26 @@ export async function POST(request) {
       );
     }
 
+    // Check if account credentials have been deleted
+    if (user.credentialsDeleted || !user.password) {
+      return NextResponse.json(
+        { error: "This account's login credentials have been removed. Please contact Administrator to restore access." },
+        { status: 403 }
+      );
+    }
+
     let isMatch = await comparePassword(password, user.password);
-    // Fallback case-check for default admin (Admin@123 / admin@123)
-    if (!isMatch && user.username === "admin") {
-      const altPassword = password.startsWith("A")
-        ? "a" + password.slice(1)
-        : password.startsWith("a")
-        ? "A" + password.slice(1)
-        : null;
-      if (altPassword) {
-        isMatch = await comparePassword(altPassword, user.password);
+    // Fallback case-check for default admin and superadmin
+    if (!isMatch && (user.username === "admin" || user.username === "superadmin")) {
+      const candidates = ["admin@123", "Admin@123", "SuperAdmin@123", "superadmin@123"];
+      for (const cand of candidates) {
+        if (await comparePassword(cand, user.password)) {
+          isMatch = true;
+          break;
+        }
       }
     }
+
     if (!isMatch) {
       return NextResponse.json(
         { error: "Invalid username or password." },

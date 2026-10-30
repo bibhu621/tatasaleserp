@@ -55,6 +55,12 @@ function calcDeal(deal) {
     .filter((e) => paymentStatus(e) !== "rejected")
     .reduce((s, e) => s + num(e.amount), 0);
 
+  const totalRefunded = (deal.refundLog || [])
+    .filter((e) => paymentStatus(e) !== "rejected")
+    .reduce((s, e) => s + num(e.amount), 0);
+
+  const netCollected = totalCollected - totalRefunded;
+
   const approvedAdjustments = (deal.adjustments || [])
     .filter((a) => a.status === "approved")
     .reduce((s, a) => s + num(a.amount), 0);
@@ -63,7 +69,7 @@ function calcDeal(deal) {
     .filter((a) => a.status === "pending")
     .reduce((s, a) => s + num(a.amount), 0);
 
-  const balance = netOnRoad - totalCollected - approvedAdjustments;
+  const balance = netOnRoad - netCollected - approvedAdjustments;
 
   return {
     netPrice,
@@ -71,6 +77,8 @@ function calcDeal(deal) {
     totalOnRoad,
     netOnRoad,
     totalCollected,
+    totalRefunded,
+    netCollected,
     approvedAdjustments,
     pendingAdjustments,
     balance,
@@ -170,6 +178,13 @@ export async function GET(request) {
         .filter(Boolean)
         .join("; ");
 
+      const validRefunds = (d.refundLog || []).filter(
+        (r) => paymentStatus(r) !== "rejected"
+      );
+      const refundsStr = validRefunds
+        .map((r) => `${r.refundType || "Customer"}: ₹${r.amount} (${r.mode || ""})`)
+        .join("; ");
+
       const otherDiscountsStr = (d.pricing?.otherDiscounts || [])
         .map((o) => `${o.label || "Discount"}: ₹${o.amount}`)
         .join("; ");
@@ -247,8 +262,10 @@ export async function GET(request) {
         "Exchange Bonus (INR)": num(pr.exchangeBonus),
         "NET ON-ROAD PRICE (INR)": c.netOnRoad || 0,
 
-        // Ledger / Collections (INR)
+        // Ledger / Collections & Refunds (INR)
         "Total Collected (INR)": c.totalCollected || 0,
+        "Total Refunded (INR)": c.totalRefunded || 0,
+        "Net Collected (INR)": c.netCollected || 0,
         "Outstanding Due (INR)": c.outstandingDue || 0,
         "Approved Adjustments (INR)": c.approvedAdjustments || 0,
         "Pending Adjustments (INR)": c.pendingAdjustments || 0,
@@ -256,6 +273,7 @@ export async function GET(request) {
         "Payment Modes": modes || "None",
         "Payment UTR / Cheque Ref": refs || "None",
         "Payment Dates": paymentDates || "None",
+        "Customer Refunds": refundsStr || "None",
         "Payment Transactions Count": validPayments.length,
 
         // Office Use & Retentions (INR)
@@ -305,19 +323,21 @@ export async function GET(request) {
     // 3. Summary Sheet
     const totalNet = filtered.reduce((s, x) => s + x.c.netOnRoad, 0);
     const totalCollected = filtered.reduce((s, x) => s + x.c.totalCollected, 0);
+    const totalRefunded = filtered.reduce((s, x) => s + (x.c.totalRefunded || 0), 0);
     const totalDue = filtered.reduce((s, x) => s + x.c.outstandingDue, 0);
 
     const summaryRows = [
-      { Metric: "Dealership Company", Value: "TATA PUNYA" },
-      { Metric: "Software System", Value: "Tata Punya ERP" },
+      { Metric: "Dealership Company", Value: "Punya Autowheels Pvt. Ltd." },
+      { Metric: "Software System", Value: "Punya Autowheels Pvt. Ltd. ERP" },
       { Metric: "Report Scope", Value: isSales ? `Sales Executive: ${auth.session.name}` : "Dealership Wide" },
       { Metric: isSales ? "My Total Deals" : "Total Deals", Value: filtered.length },
       { Metric: isSales ? "My Net Sales Value (INR)" : "Total Net Order Value (INR)", Value: totalNet },
       { Metric: isSales ? "My Collected Inflow (INR)" : "Total Collected (INR)", Value: totalCollected },
+      { Metric: "Total Refunded (INR)", Value: totalRefunded },
       { Metric: isSales ? "My Pending Customer Dues (INR)" : "Total Outstanding Dues (INR)", Value: totalDue },
       {
         Metric: "Collection Rate (%)",
-        Value: totalNet > 0 ? Math.round((totalCollected / totalNet) * 100) + "%" : "0%",
+        Value: totalNet > 0 ? Math.round(((totalCollected - totalRefunded) / totalNet) * 100) + "%" : "0%",
       },
     ];
     const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
@@ -325,8 +345,8 @@ export async function GET(request) {
 
     const buf = XLSX.write(wb, { bookType: "xlsx", type: "buffer" });
     const filename = isSales
-      ? `Tata_Punya_My_Sales_Report_${new Date().toISOString().slice(0, 10)}.xlsx`
-      : `Tata_Punya_Sales_Report_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      ? `Punya_Autowheels_My_Sales_Report_${new Date().toISOString().slice(0, 10)}.xlsx`
+      : `Punya_Autowheels_Sales_Report_${new Date().toISOString().slice(0, 10)}.xlsx`;
 
     return new NextResponse(buf, {
       status: 200,

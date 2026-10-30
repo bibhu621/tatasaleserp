@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/auth";
 import { getAllUsers, createUser } from "@/lib/db";
 
-const VALID_ROLES = ["admin", "sales", "accounts", "rto"];
+const VALID_ROLES = ["superadmin", "admin", "sales", "accounts", "rto"];
 
 export async function GET(request) {
-  const auth = requireRole(request, ["admin"]);
+  const auth = requireRole(request, ["admin", "superadmin"]);
   if (auth.error) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
@@ -19,7 +19,7 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-  const auth = requireRole(request, ["admin"]);
+  const auth = requireRole(request, ["admin", "superadmin"]);
   if (auth.error) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
@@ -65,6 +65,7 @@ export async function POST(request) {
         name: newUser.name,
         role: newUser.role,
         branch: newUser.branch,
+        credentialsDeleted: false,
       },
     });
   } catch (error) {
