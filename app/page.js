@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
-import { Truck, ClipboardCheck, Wallet, BarChart3, Plus, ChevronRight, ChevronDown, CheckCircle2, XCircle, Clock, PackageCheck, ArrowLeft, LogOut, AlertTriangle, FileText, Filter, RefreshCw, Search, ShieldCheck, Lock, Users, Printer, RotateCcw } from "lucide-react";
+import { Truck, ClipboardCheck, Wallet, BarChart3, Plus, ChevronRight, ChevronDown, CheckCircle2, XCircle, Clock, PackageCheck, ArrowLeft, LogOut, AlertTriangle, FileText, Filter, RefreshCw, Search, ShieldCheck, Lock, Users, Printer, RotateCcw, Sparkles } from "lucide-react";
 import LoginPage from "@/components/LoginPage";
 import UserManagement from "@/components/UserManagement";
 import ReportsDashboard from "@/components/ReportsDashboard";
@@ -273,6 +273,37 @@ const flat = (deals, key, pred = () => true) =>
 const patchIn = (key, id, patch) => p => ({ ...p, [key]: (p[key] || []).map(e => (e.id === id ? { ...e, ...patch } : e)) });
 const dealSub = e => `${e.branch} · ${e.dealId}${e.chassis ? ` · Chassis ${e.chassis}` : ""}`;
 
+async function searchMemoryByPan(pan, localDeals = []) {
+  if (!pan || typeof pan !== "string") return null;
+  const cleanPan = pan.trim().toUpperCase();
+  if (!cleanPan) return null;
+
+  try {
+    const res = await fetch(`/api/customers/search?pan=${encodeURIComponent(cleanPan)}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data.matches) && data.matches.length > 0) {
+        return data.matches[0].customer;
+      }
+    }
+  } catch (err) {
+    console.warn("Server search by PAN failed, checking local memory:", err);
+  }
+
+  // Client memory fallback
+  if (Array.isArray(localDeals)) {
+    const matchedDeal = localDeals.slice().reverse().find(d => {
+      const p = d.customer?.pan;
+      return p && p.trim().toUpperCase() === cleanPan;
+    });
+    if (matchedDeal?.customer) {
+      return matchedDeal.customer;
+    }
+  }
+
+  return null;
+}
+
 /* ====================================================================== */
 /*  Primitives                                                             */
 /* ====================================================================== */
@@ -411,11 +442,18 @@ function DealEditor({ deal: d, deals, session, onUpdate, onBack, onDelete }) {
   const isSales = role === "sales";
   const isRto = role === "rto";
   const isAdminOrSuper = isAdmin || isSuperAdmin;
+  const canVerifyPaymentOrRefund = isAccounts || isAdminOrSuper;
   const chassis = d.vehicle.chassisNo;
   const hasPendingAmendment = (d.amendments || []).some(a => a.status === "pending");
   const [editMode, setEditMode] = useState(false);
   const [modal, setModal] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // PAN memory search states
+  const [panSearchTerm, setPanSearchTerm] = useState("");
+  const [searchingPan, setSearchingPan] = useState(false);
+  const [panSuggestion, setPanSuggestion] = useState(null);
+  const [panNotice, setPanNotice] = useState("");
 
   // Status flags
   const preApproval = d.status === STATUS.DRAFT || d.status === STATUS.REJECTED;
@@ -444,7 +482,51 @@ function DealEditor({ deal: d, deals, session, onUpdate, onBack, onDelete }) {
   useEffect(() => {
     setCoreDraft(snapshot());
     setEditMode(false);
+    setPanSearchTerm("");
+    setPanSuggestion(null);
+    setPanNotice("");
   }, [d.id]);
+
+  const handleCheckMemory = async (termToSearch) => {
+    const term = (termToSearch || panSearchTerm || coreDraft.customer?.pan || "").trim().toUpperCase();
+    if (!term) {
+      setPanNotice("Please enter a PAN card number to check memory.");
+      return;
+    }
+    setSearchingPan(true);
+    setPanNotice("");
+    setPanSuggestion(null);
+
+    const match = await searchMemoryByPan(term, deals);
+    setSearchingPan(false);
+
+    if (match) {
+      setPanSuggestion(match);
+    } else {
+      setPanNotice(`No existing customer found with PAN ${term} in database.`);
+    }
+  };
+
+  const applyCustomerSuggestion = (customer) => {
+    const updatedCustomer = {
+      ...coreDraft.customer,
+      ...(customer || {}),
+    };
+    setCoreDraft(prev => ({
+      ...prev,
+      customer: updatedCustomer,
+    }));
+    onUpdate(prev => ({
+      ...prev,
+      customer: updatedCustomer,
+      activity: [
+        ...(prev.activity || []),
+        logEntry(session.name, role, `Auto-filled customer data from memory for PAN ${customer.pan || ""} (${customer.name || ""})`),
+      ],
+    }));
+    setPanSuggestion(null);
+    setPanNotice(`✓ Auto-filled customer details for ${customer.name || "customer"} from memory.`);
+  };
 
   // Every change saves immediately through onUpdate; nothing lives only in this component.
   const withLog = (patchFn, note) => onUpdate(prev => ({ ...patchFn(prev), activity: [...(prev.activity || []), logEntry(session.name, role, note)] }));
@@ -602,9 +684,9 @@ function DealEditor({ deal: d, deals, session, onUpdate, onBack, onDelete }) {
           id: "P" + Date.now().toString(36), date: v.date, amount, mode: v.mode,
           reference: adv ? "" : v.reference || "", sourceDealId: adv ? v.sourceDealId : undefined,
           enteredBy: session.name,
-          status: isAccounts ? "verified" : "pending", verifiedBy: isAccounts ? session.name : undefined,
+          status: canVerifyPaymentOrRefund ? "verified" : "pending", verifiedBy: canVerifyPaymentOrRefund ? session.name : undefined,
         };
-        withLog(p => ({ ...p, paymentLog: [...(p.paymentLog || []), entry] }), `Logged payment ${inr(amount)} via ${v.mode}${sourceLabel} (received ${v.date})${isAccounts ? " — recorded as received" : ""}`);
+        withLog(p => ({ ...p, paymentLog: [...(p.paymentLog || []), entry] }), `Logged payment ${inr(amount)} via ${v.mode}${sourceLabel} (received ${v.date})${canVerifyPaymentOrRefund ? " — recorded as verified" : ""}`);
       },
     });
   };
@@ -647,12 +729,12 @@ function DealEditor({ deal: d, deals, session, onUpdate, onBack, onDelete }) {
           reference: v.reference || "",
           remarks: v.remarks || "",
           enteredBy: session.name,
-          status: isAccounts ? "verified" : "pending",
-          verifiedBy: isAccounts ? session.name : undefined,
+          status: canVerifyPaymentOrRefund ? "verified" : "pending",
+          verifiedBy: canVerifyPaymentOrRefund ? session.name : undefined,
         };
         withLog(
           p => ({ ...p, refundLog: [...(p.refundLog || []), entry] }),
-          `Logged refund of ${inr(amount)} to ${v.refundType} via ${v.mode}${v.reference ? ` (Ref: ${v.reference})` : ""}${isAccounts ? " — recorded as verified" : ""}`
+          `Logged refund of ${inr(amount)} to ${v.refundType} via ${v.mode}${v.reference ? ` (Ref: ${v.reference})` : ""}${canVerifyPaymentOrRefund ? " — recorded as verified" : ""}`
         );
       },
     });
@@ -853,7 +935,122 @@ function DealEditor({ deal: d, deals, session, onUpdate, onBack, onDelete }) {
         </div>
 
         <Section title="Customer & Company Details" subtitle="Customer details" accent="#3B82C4">
-          {CUSTOMER_FIELDS.map(([k, l]) => <Field key={k} label={l} value={coreDraft.customer[k]} onChange={v => editCore("customer", k, v)} onCommit={(o, n) => editCoreCommit("customer", k, o, n)} readOnly={!canTouch} />)}
+          {/* Customer Memory PAN search bar */}
+          <div className="span" style={{ background: "#F4F7FB", border: "1px solid #C7D9F1", borderRadius: 8, padding: "10px 14px", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+            <div className="flex wrapf" style={{ gap: 8, alignItems: "center" }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "#1D4ED8", display: "flex", alignItems: "center", gap: 5 }}>
+                <Sparkles size={16} /> Check Customer Memory:
+              </span>
+              <input
+                type="text"
+                placeholder="Search by PAN (e.g. ABCDE1234F)"
+                className="mono"
+                style={{ textTransform: "uppercase", padding: "5px 10px", borderRadius: 6, border: "1px solid #BFDBFE", width: 190, background: "#fff", color: "var(--ink)" }}
+                value={panSearchTerm}
+                onChange={e => {
+                  setPanSearchTerm(e.target.value.toUpperCase());
+                  if (panNotice) setPanNotice("");
+                }}
+                onKeyDown={e => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleCheckMemory(panSearchTerm);
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className="btn pri xs"
+                onClick={() => handleCheckMemory(panSearchTerm)}
+                disabled={searchingPan || !panSearchTerm.trim()}
+              >
+                {searchingPan ? "Checking..." : "🔍 Check Memory"}
+              </button>
+              {coreDraft.customer?.pan && coreDraft.customer.pan !== panSearchTerm && (
+                <button
+                  type="button"
+                  className="btn xs"
+                  onClick={() => {
+                    const p = coreDraft.customer.pan.toUpperCase();
+                    setPanSearchTerm(p);
+                    handleCheckMemory(p);
+                  }}
+                >
+                  Use Form PAN ({coreDraft.customer.pan})
+                </button>
+              )}
+            </div>
+            {panNotice && <span className="sm" style={{ color: panNotice.startsWith("✓") ? "#25683A" : "#9A5B00", fontWeight: 600 }}>{panNotice}</span>}
+          </div>
+
+          {panSuggestion && (
+            <div className="span" style={{ background: "#F0FDF4", border: "1px solid #86EFAC", borderRadius: 8, padding: 12 }}>
+              <div className="flex between wrapf">
+                <div>
+                  <div style={{ fontWeight: 700, color: "#166534", display: "flex", alignItems: "center", gap: 6 }}>
+                    <CheckCircle2 size={16} color="#15803D" />
+                    Existing customer found in database for PAN: <span className="mono">{panSuggestion.pan}</span>
+                  </div>
+                  <div className="sm" style={{ color: "#15803D", marginTop: 4 }}>
+                    <b>{panSuggestion.name}</b> {panSuggestion.companyName ? `(${panSuggestion.companyName})` : ""} · Mobile: {panSuggestion.mobile || "—"} · Location: {[panSuggestion.address, panSuggestion.district, panSuggestion.state].filter(Boolean).join(", ") || "—"}
+                  </div>
+                </div>
+                <div className="flex" style={{ gap: 8, marginTop: 4 }}>
+                  <button
+                    type="button"
+                    className="btn go xs"
+                    onClick={() => applyCustomerSuggestion(panSuggestion)}
+                  >
+                    ⚡ Auto-fill Customer Data into Form
+                  </button>
+                  <button
+                    type="button"
+                    className="lnk mu"
+                    onClick={() => setPanSuggestion(null)}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {CUSTOMER_FIELDS.map(([k, l]) =>
+            k === "pan" ? (
+              <label key={k} className="fld">
+                <span className="lbl flex between">
+                  <span>{l}</span>
+                  {canTouch && (
+                    <button
+                      type="button"
+                      className="lnk pri sm"
+                      style={{ fontWeight: 700 }}
+                      onClick={() => {
+                        const p = (coreDraft.customer.pan || "").toUpperCase();
+                        setPanSearchTerm(p);
+                        handleCheckMemory(p);
+                      }}
+                      disabled={searchingPan || !coreDraft.customer.pan}
+                    >
+                      Check Memory
+                    </button>
+                  )}
+                </span>
+                <span className={`inp ${!canTouch ? "ro" : ""}`}>
+                  <input
+                    className="mono"
+                    style={{ textTransform: "uppercase" }}
+                    value={coreDraft.customer.pan ?? ""}
+                    readOnly={!canTouch}
+                    onChange={e => editCore("customer", "pan", e.target.value.toUpperCase())}
+                    onBlur={() => editCoreCommit("customer", "pan", coreDraft.customer.pan, coreDraft.customer.pan)}
+                  />
+                </span>
+              </label>
+            ) : (
+              <Field key={k} label={l} value={coreDraft.customer[k]} onChange={v => editCore("customer", k, v)} onCommit={(o, n) => editCoreCommit("customer", k, o, n)} readOnly={!canTouch} />
+            )
+          )}
         </Section>
 
         <Section title="Vehicle" subtitle="Vehicle details" accent="#3E9B63">
@@ -889,11 +1086,11 @@ function DealEditor({ deal: d, deals, session, onUpdate, onBack, onDelete }) {
                         <td className="mono"><b>{inr(e.amount)}</b></td>
                         <td>{e.enteredBy}</td>
                         <td>
-                          {st === "verified" && <span className="ok flex" style={{ fontWeight: 700 }}><CheckCircle2 size={14} /> Verified</span>}
+                          {st === "verified" && <span className="ok flex" style={{ fontWeight: 700 }}><CheckCircle2 size={14} /> Verified{e.verifiedBy ? ` (${e.verifiedBy})` : ""}</span>}
                           {st === "pending" && <span className="warn">Unverified</span>}
                           {st === "rejected" && <span className="bad flex" style={{ fontWeight: 700 }}><XCircle size={14} /> Rejected{e.rejectionReason ? `: ${e.rejectionReason}` : ""}</span>}
                         </td>
-                        <td>{isAccounts && st === "pending" && <div className="flex"><button className="lnk ok" onClick={() => verifyPayment(e.id)}>Verify</button><button className="lnk bad" onClick={() => rejectPayment(e.id)}>Reject</button></div>}</td>
+                        <td>{canVerifyPaymentOrRefund && st === "pending" && <div className="flex"><button className="lnk ok" onClick={() => verifyPayment(e.id)}>Verify</button><button className="lnk bad" onClick={() => rejectPayment(e.id)}>Reject</button></div>}</td>
                       </tr>
                     );
                   })}
@@ -961,11 +1158,11 @@ function DealEditor({ deal: d, deals, session, onUpdate, onBack, onDelete }) {
                         <td className="mono"><b className="bad">{inr(e.amount)}</b></td>
                         <td>{e.enteredBy}</td>
                         <td>
-                          {st === "verified" && <span className="ok flex" style={{ fontWeight: 700 }}><CheckCircle2 size={14} /> Verified</span>}
+                          {st === "verified" && <span className="ok flex" style={{ fontWeight: 700 }}><CheckCircle2 size={14} /> Verified{e.verifiedBy ? ` (${e.verifiedBy})` : ""}</span>}
                           {st === "pending" && <span className="warn">Unverified</span>}
                           {st === "rejected" && <span className="bad flex" style={{ fontWeight: 700 }}><XCircle size={14} /> Rejected{e.rejectionReason ? `: ${e.rejectionReason}` : ""}</span>}
                         </td>
-                        <td>{isAccounts && st === "pending" && <div className="flex"><button className="lnk ok" onClick={() => verifyRefund(e.id)}>Verify</button><button className="lnk bad" onClick={() => rejectRefund(e.id)}>Reject</button></div>}</td>
+                        <td>{canVerifyPaymentOrRefund && st === "pending" && <div className="flex"><button className="lnk ok" onClick={() => verifyRefund(e.id)}>Verify</button><button className="lnk bad" onClick={() => rejectRefund(e.id)}>Reject</button></div>}</td>
                       </tr>
                     );
                   })}
@@ -1201,35 +1398,167 @@ function Approvals({ deals, onOpen }) {
   return <div className="stack">{queues.map(([title, items]) => <Queue key={title} title={title} items={items} onOpen={onOpen} />)}</div>;
 }
 
-function PaymentsToVerify({ deals, onVerify, onReject, onOpen }) {
-  const [rejectModal, setRejectModal] = useState(null);
-  const pending = flat(deals, "paymentLog", e => paymentStatus(e) === "pending").sort((a, b) => new Date(a.date) - new Date(b.date));
+function PaymentsToVerify({ deals, onVerifyPayment, onRejectPayment, onVerifyRefund, onRejectRefund, onOpen }) {
+  const [rejectPaymentModal, setRejectPaymentModal] = useState(null);
+  const [rejectRefundModal, setRejectRefundModal] = useState(null);
+  const [filterType, setFilterType] = useState("all");
+
+  const pendingPayments = flat(deals, "paymentLog", e => paymentStatus(e) === "pending").sort((a, b) => new Date(a.date) - new Date(b.date));
+  const pendingRefunds = flat(deals, "refundLog", e => paymentStatus(e) === "pending").sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  const showPayments = filterType === "all" || filterType === "payments";
+  const showRefunds = filterType === "all" || filterType === "refunds";
+
   return (
     <div className="stack">
-      <div className="card">
-        <div className="h" style={{ marginBottom: 10 }}>Payments awaiting verification</div>
-        {pending.length === 0 ? <div className="center" style={{ padding: "32px 0", fontStyle: "italic" }}>Nothing pending.</div> : (
-          <div className="stack-s">
-            {pending.map(e => (
-              <div key={e.id} className="qrow" style={{ cursor: "default", flexWrap: "wrap" }}>
-                <div>
-                  <div style={{ fontWeight: 600 }}>{inr(e.amount)} via {e.mode} — {e.customer || "Untitled customer"}</div>
-                  <div className="sm mute">{e.branch}{e.chassis && ` · Chassis ${e.chassis}`} · received {e.date} · entered by {e.enteredBy}{e.reference ? ` · Ref ${e.reference}` : ""}</div>
-                </div>
-                <div className="flex">
-                  <button className="lnk mu" onClick={() => onOpen(e.dealId)}>View deal</button>
-                  <button className="btn go xs" onClick={() => onVerify(e.dealId, e.id)}>Verify</button>
-                  <button className="btn no xs" onClick={() => setRejectModal({ dealId: e.dealId, paymentId: e.id, entry: e })}>Reject</button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+      {/* Quick filter tabs */}
+      <div className="flex between wrapf" style={{ marginBottom: 4 }}>
+        <div className="flex wrapf" style={{ gap: 8 }}>
+          <button
+            type="button"
+            className={`btn xs ${filterType === "all" ? "acc" : ""}`}
+            onClick={() => setFilterType("all")}
+          >
+            All Pending ({pendingPayments.length + pendingRefunds.length})
+          </button>
+          <button
+            type="button"
+            className={`btn xs ${filterType === "payments" ? "acc" : ""}`}
+            onClick={() => setFilterType("payments")}
+          >
+            Payments ({pendingPayments.length})
+          </button>
+          <button
+            type="button"
+            className={`btn xs ${filterType === "refunds" ? "acc" : ""}`}
+            onClick={() => setFilterType("refunds")}
+          >
+            Refunds ({pendingRefunds.length})
+          </button>
+        </div>
       </div>
-      {rejectModal && (
-        <ModalForm title="Reject this payment" message={`${inr(rejectModal.entry.amount)} via ${rejectModal.entry.mode}, received ${rejectModal.entry.date}`}
+
+      {/* Customer Payments Awaiting Verification */}
+      {showPayments && (
+        <div className="card">
+          <div className="flex between wrapf" style={{ marginBottom: 12 }}>
+            <div className="h" style={{ fontSize: 16, display: "flex", alignItems: "center", gap: 8 }}>
+              <Wallet size={18} color="#25683A" />
+              Customer Payments Awaiting Verification
+            </div>
+            <span className="chip" style={{ background: pendingPayments.length ? "#D9EDDD" : "#F3EFE6", color: pendingPayments.length ? "#25683A" : "var(--mute)", fontWeight: 700 }}>
+              {pendingPayments.length} pending
+            </span>
+          </div>
+
+          {pendingPayments.length === 0 ? (
+            <div className="center" style={{ padding: "24px 0", fontStyle: "italic" }}>
+              No customer payments awaiting verification.
+            </div>
+          ) : (
+            <div className="stack-s">
+              {pendingPayments.map(e => (
+                <div key={e.id} className="qrow" style={{ cursor: "default", flexWrap: "wrap" }}>
+                  <div>
+                    <div style={{ fontWeight: 600 }}>
+                      <b className="ok" style={{ marginRight: 6 }}>{inr(e.amount)}</b>
+                      via {e.mode} — {e.customer || "Untitled customer"}
+                    </div>
+                    <div className="sm mute">
+                      {e.branch}{e.chassis && ` · Chassis ${e.chassis}`} · received {e.date} · entered by {e.enteredBy}{e.reference ? ` · Ref ${e.reference}` : ""}
+                    </div>
+                  </div>
+                  <div className="flex">
+                    <button className="lnk mu" onClick={() => onOpen(e.dealId)}>View deal</button>
+                    <button className="btn go xs" onClick={() => onVerifyPayment(e.dealId, e.id)}>Verify</button>
+                    <button className="btn no xs" onClick={() => setRejectPaymentModal({ dealId: e.dealId, paymentId: e.id, entry: e })}>Reject</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Customer Refunds Awaiting Verification */}
+      {showRefunds && (
+        <div className="card">
+          <div className="flex between wrapf" style={{ marginBottom: 12 }}>
+            <div className="h" style={{ fontSize: 16, display: "flex", alignItems: "center", gap: 8 }}>
+              <RotateCcw size={18} color="#D2481B" />
+              Customer Refunds Awaiting Verification
+            </div>
+            <span className="chip" style={{ background: pendingRefunds.length ? "#F8DAD5" : "#F3EFE6", color: pendingRefunds.length ? "#A8281F" : "var(--mute)", fontWeight: 700 }}>
+              {pendingRefunds.length} pending
+            </span>
+          </div>
+
+          {pendingRefunds.length === 0 ? (
+            <div className="center" style={{ padding: "24px 0", fontStyle: "italic" }}>
+              No customer refunds awaiting verification.
+            </div>
+          ) : (
+            <div className="stack-s">
+              {pendingRefunds.map(e => (
+                <div key={e.id} className="qrow" style={{ cursor: "default", flexWrap: "wrap", borderLeft: "3px solid #D2481B" }}>
+                  <div>
+                    <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <b className="bad">{inr(e.amount)}</b>
+                      <span
+                        className="tag"
+                        style={{
+                          fontWeight: 700,
+                          fontSize: 11,
+                          background: e.refundType === "Body Fabricator" ? "#EBF3FF" : e.refundType === "Retention Amount" ? "#FEF3C7" : "#F3E8FF",
+                          color: e.refundType === "Body Fabricator" ? "#1D4ED8" : e.refundType === "Retention Amount" ? "#B45309" : "#6D28D9",
+                        }}
+                      >
+                        {e.refundType || "Customer"}
+                      </span>
+                      <span>via {e.mode} — {e.customer || "Untitled customer"}</span>
+                    </div>
+                    <div className="sm mute">
+                      {e.branch}{e.chassis && ` · Chassis ${e.chassis}`} · refund date {e.date} · entered by {e.enteredBy}{e.reference ? ` · Ref ${e.reference}` : ""}{e.remarks ? ` · ${e.remarks}` : ""}
+                    </div>
+                  </div>
+                  <div className="flex">
+                    <button className="lnk mu" onClick={() => onOpen(e.dealId)}>View deal</button>
+                    <button className="btn go xs" onClick={() => onVerifyRefund(e.dealId, e.id)}>Verify</button>
+                    <button className="btn no xs" onClick={() => setRejectRefundModal({ dealId: e.dealId, refundId: e.id, entry: e })}>Reject</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Reject Payment Modal */}
+      {rejectPaymentModal && (
+        <ModalForm
+          title="Reject this payment"
+          message={`${inr(rejectPaymentModal.entry.amount)} via ${rejectPaymentModal.entry.mode}, received ${rejectPaymentModal.entry.date}`}
           fields={[{ name: "reason", label: "Reason (e.g. cheque bounced, amount mismatch)", autoFocus: true }]}
-          onSubmit={v => { onReject(rejectModal.dealId, rejectModal.paymentId, v.reason || ""); }} onClose={() => setRejectModal(null)} />
+          onSubmit={v => {
+            onRejectPayment(rejectPaymentModal.dealId, rejectPaymentModal.paymentId, v.reason || "");
+            setRejectPaymentModal(null);
+          }}
+          onClose={() => setRejectPaymentModal(null)}
+        />
+      )}
+
+      {/* Reject Refund Modal */}
+      {rejectRefundModal && (
+        <ModalForm
+          title="Reject this refund"
+          message={`${inr(rejectRefundModal.entry.amount)} to ${rejectRefundModal.entry.refundType || "Customer"} via ${rejectRefundModal.entry.mode}, dated ${rejectRefundModal.entry.date}`}
+          fields={[{ name: "reason", label: "Reason (e.g. invalid claim, account mismatch)", autoFocus: true }]}
+          onSubmit={v => {
+            onRejectRefund(rejectRefundModal.dealId, rejectRefundModal.refundId, v.reason || "");
+            setRejectRefundModal(null);
+          }}
+          onClose={() => setRejectRefundModal(null)}
+        />
       )}
     </div>
   );
@@ -1273,18 +1602,73 @@ function AuditTrail({ deals, onOpen }) {
 function NewDealModal({ isOpen, onClose, onCreate, session }) {
   const initBranch = () => normalizeBranch(session?.branch) || "Sasaram";
   const [branch, setBranch] = useState(initBranch);
-  const [f, setF] = useState({ companyName: "", gstNo: "", name: "", mobile: "" });
+  const [f, setF] = useState({ companyName: "", gstNo: "", name: "", mobile: "", pan: "" });
   const [error, setError] = useState("");
 
+  const [searchingPan, setSearchingPan] = useState(false);
+  const [panSuggestion, setPanSuggestion] = useState(null);
+  const [panNotice, setPanNotice] = useState("");
+  const [fullCustomerData, setFullCustomerData] = useState(null);
+
   useEffect(() => {
-    if (isOpen) { setBranch(initBranch()); setF({ companyName: "", gstNo: "", name: "", mobile: "" }); setError(""); }
+    if (isOpen) {
+      setBranch(initBranch());
+      setF({ companyName: "", gstNo: "", name: "", mobile: "", pan: "" });
+      setError("");
+      setSearchingPan(false);
+      setPanSuggestion(null);
+      setPanNotice("");
+      setFullCustomerData(null);
+    }
   }, [isOpen, session]);
   if (!isOpen) return null;
+
+  const handleCheckMemory = async (panToSearch) => {
+    const term = (panToSearch || f.pan || "").trim().toUpperCase();
+    if (!term) {
+      setPanNotice("Please enter a PAN card number to check memory.");
+      return;
+    }
+    setSearchingPan(true);
+    setPanNotice("");
+    setPanSuggestion(null);
+
+    const match = await searchMemoryByPan(term);
+    setSearchingPan(false);
+
+    if (match) {
+      setPanSuggestion(match);
+    } else {
+      setPanNotice(`No prior customer record found for PAN ${term} in database.`);
+    }
+  };
+
+  const applyPanSuggestion = (customer) => {
+    setF(prev => ({
+      ...prev,
+      companyName: customer.companyName || prev.companyName,
+      gstNo: customer.gstNo || prev.gstNo,
+      name: customer.name || prev.name,
+      mobile: customer.mobile || prev.mobile,
+      pan: customer.pan || prev.pan,
+    }));
+    setFullCustomerData(customer);
+    setPanSuggestion(null);
+    setPanNotice(`✓ Filled data for ${customer.name || "customer"} from memory.`);
+  };
 
   const submit = e => {
     e.preventDefault();
     if (!branch) return setError("Please select a mandatory dealership branch.");
-    onCreate(branch, { companyName: f.companyName.trim(), gstNo: f.gstNo.trim().toUpperCase(), name: f.name.trim(), mobile: f.mobile.trim() });
+    const customerPayload = {
+      ...(fullCustomerData || {}),
+      companyName: f.companyName.trim(),
+      gstNo: f.gstNo.trim().toUpperCase(),
+      name: f.name.trim(),
+      mobile: f.mobile.trim(),
+      pan: f.pan.trim().toUpperCase(),
+    };
+    onCreate(branch, customerPayload);
   };
   const input = (key, label, placeholder, extra = {}) => (
     <label className="fld">
@@ -1327,13 +1711,84 @@ function NewDealModal({ isOpen, onClose, onCreate, session }) {
             </div>
           </div>
           <div className="stack-s" style={{ paddingTop: 12, borderTop: "1px solid var(--line)" }}>
-            <div className="flex between"><span className="lbl" style={{ color: "var(--ink)" }}>2. Company name &amp; customer info</span><span className="sm mute">Can also edit in deal editor</span></div>
+            <div className="flex between wrapf">
+              <span className="lbl" style={{ color: "var(--ink)" }}>2. Company name &amp; customer info</span>
+              <span className="sm mute">Can also edit in deal editor</span>
+            </div>
+
             <div className="two">
+              <label className="fld">
+                <span className="lbl flex between">
+                  <span>PAN No. (Memory Search)</span>
+                  <button
+                    type="button"
+                    className="lnk pri sm"
+                    onClick={() => handleCheckMemory(f.pan)}
+                    disabled={searchingPan || !f.pan.trim()}
+                    style={{ fontWeight: 700 }}
+                  >
+                    {searchingPan ? "Checking..." : "🧠 Check Memory"}
+                  </button>
+                </span>
+                <span className="inp">
+                  <input
+                    type="text"
+                    autoComplete="off"
+                    className="mono"
+                    value={f.pan}
+                    placeholder="10-digit PAN (e.g. ABCDE1234F)"
+                    onChange={e => {
+                      const val = e.target.value.toUpperCase();
+                      setF(s => ({ ...s, pan: val }));
+                      if (panNotice) setPanNotice("");
+                    }}
+                    onKeyDown={e => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleCheckMemory(f.pan);
+                      }
+                    }}
+                  />
+                </span>
+              </label>
+              {input("name", "Customer / Contact Name", "Full contact name")}
               {input("companyName", "Company Name", "Company / Firm name")}
               {input("gstNo", "GST No. (Optional)", "15-digit GSTIN", { upper: true, className: "mono" })}
-              {input("name", "Customer / Contact Name", "Full contact name")}
               {input("mobile", "Mobile Number", "10-digit mobile number")}
             </div>
+
+            {panSuggestion && (
+              <div style={{ background: "#EDF7ED", border: "1px solid #B7EB8F", borderRadius: 8, padding: 12, marginTop: 10 }}>
+                <div className="flex between wrapf">
+                  <div>
+                    <div style={{ fontWeight: 700, color: "#1E4620", display: "flex", alignItems: "center", gap: 6 }}>
+                      <CheckCircle2 size={16} color="#2E7D32" />
+                      Existing customer found in database for PAN {panSuggestion.pan}:
+                    </div>
+                    <div className="sm" style={{ color: "#2E7D32", marginTop: 4 }}>
+                      <b>{panSuggestion.name}</b> {panSuggestion.companyName ? `(${panSuggestion.companyName})` : ""} · Mobile: {panSuggestion.mobile || "—"} · {[panSuggestion.address, panSuggestion.district, panSuggestion.state].filter(Boolean).join(", ") || "No address on file"}
+                    </div>
+                  </div>
+                  <div className="flex" style={{ gap: 8, marginTop: 6 }}>
+                    <button
+                      type="button"
+                      className="btn go xs"
+                      onClick={() => applyPanSuggestion(panSuggestion)}
+                    >
+                      ⚡ Fill Form with Customer Data
+                    </button>
+                    <button
+                      type="button"
+                      className="lnk mu"
+                      onClick={() => setPanSuggestion(null)}
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            {panNotice && <div className="sm" style={{ color: panNotice.startsWith("✓") ? "#2E7D32" : "#9A5B00", marginTop: 6, fontWeight: 500 }}>{panNotice}</div>}
           </div>
           <div className="flex" style={{ justifyContent: "flex-end", paddingTop: 12, borderTop: "1px solid var(--line)" }}>
             <button type="button" className="btn" onClick={onClose}>Cancel</button>
@@ -1353,7 +1808,7 @@ const ROLE_TABS = {
   superadmin: [["list", "All Deals", ClipboardCheck], ["approvals", "Approvals", ShieldCheck], ["toverify", "To Verify", CheckCircle2], ["reports", "Reports", BarChart3], ["audit", "Audit Trail", FileText], ["users", "User Management", Users]],
   admin: [["list", "All Deals", ClipboardCheck], ["approvals", "Approvals", ShieldCheck], ["toverify", "To Verify", CheckCircle2], ["reports", "Reports", BarChart3], ["audit", "Audit Trail", FileText], ["users", "User Management", Users]],
   sales: [["list", "My Deals", ClipboardCheck], ["reports", "My Reports", BarChart3]],
-  accounts: [["toverify", "Payments To Verify", CheckCircle2], ["list", "Deals Ledger", ClipboardCheck], ["reports", "Financial Reports", BarChart3]],
+  accounts: [["toverify", "To Verify", CheckCircle2], ["list", "Deals Ledger", ClipboardCheck], ["reports", "Financial Reports", BarChart3]],
   rto: [["list", "RTO & Compliance Deals", ClipboardCheck]],
 };
 const getCacheKey = s => (s ? `sales_erp_deals_cache_${s.id || s.username || s.role}` : "sales_erp_deals_cache");
@@ -1449,6 +1904,17 @@ export default function App() {
   const verifyPaymentFor = (dealId, paymentId) => paymentUpdate(dealId, paymentId, { status: "verified", verifiedBy: session.name }, l => `Verified payment ${l}`);
   const rejectPaymentFor = (dealId, paymentId, reason) => paymentUpdate(dealId, paymentId, { status: "rejected", rejectedBy: session.name, rejectionReason: reason }, l => `Rejected payment ${l}${reason ? ": " + reason : ""}`);
 
+  const refundUpdate = (dealId, refundId, patch, noteFn) =>
+    handleUpdateDeal(dealId, p => {
+      const entry = (p.refundLog || []).find(e => e.id === refundId);
+      return {
+        ...patchIn("refundLog", refundId, patch)(p),
+        activity: [...(p.activity || []), logEntry(session.name, session.role, noteFn(entry ? inr(entry.amount) + " to " + (entry.refundType || "Customer") + " via " + entry.mode : ""))],
+      };
+    });
+  const verifyRefundFor = (dealId, refundId) => refundUpdate(dealId, refundId, { status: "verified", verifiedBy: session.name }, l => `Verified refund ${l}`);
+  const rejectRefundFor = (dealId, refundId, reason) => refundUpdate(dealId, refundId, { status: "rejected", rejectedBy: session.name, rejectionReason: reason }, l => `Rejected refund ${l}${reason ? ": " + reason : ""}`);
+
   if (authChecking) {
     return (
       <div className="erp" style={{ display: "grid", placeItems: "center", background: "#191714", color: "#A9A293" }}>
@@ -1503,7 +1969,17 @@ export default function App() {
   else if (tab === "list") body = <DealsList deals={userDeals} session={session} onOpen={setOpenId} onNew={canCreate ? () => setNewDealModalOpen(true) : undefined} />;
   else if (tab === "reports") body = <ReportsDashboard deals={userDeals} session={session} onOpen={setOpenId} />;
   else if (tab === "approvals" && isAdminOrSuper) body = <Approvals deals={deals} onOpen={jumpToDeal} />;
-  else if (tab === "toverify") body = <PaymentsToVerify deals={deals} onVerify={verifyPaymentFor} onReject={rejectPaymentFor} onOpen={jumpToDeal} />;
+  else if (tab === "toverify")
+    body = (
+      <PaymentsToVerify
+        deals={deals}
+        onVerifyPayment={verifyPaymentFor}
+        onRejectPayment={rejectPaymentFor}
+        onVerifyRefund={verifyRefundFor}
+        onRejectRefund={rejectRefundFor}
+        onOpen={jumpToDeal}
+      />
+    );
   else if (tab === "audit" && isAdminOrSuper) body = <AuditTrail deals={deals} onOpen={jumpToDeal} />;
   else body = <div className="center">Please select an authorized tab.</div>;
 
@@ -1545,9 +2021,19 @@ export default function App() {
 
       {!openDeal && (
         <nav className="tabs">
-          {roleTabs.map(([id, label, Icon]) => (
-            <button key={id} className={`tab ${tab === id ? "on" : ""}`} onClick={() => setTab(id)}><Icon size={16} /> {label}</button>
-          ))}
+          {roleTabs.map(([id, label, Icon]) => {
+            const pendingVerificationsCount = id === "toverify" ? (flat(deals, "paymentLog", e => paymentStatus(e) === "pending").length + flat(deals, "refundLog", e => paymentStatus(e) === "pending").length) : 0;
+            return (
+              <button key={id} className={`tab ${tab === id ? "on" : ""}`} onClick={() => setTab(id)}>
+                <Icon size={16} /> {label}
+                {id === "toverify" && pendingVerificationsCount > 0 && (
+                  <span style={{ marginLeft: 6, background: "#D2481B", color: "#fff", fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 10 }}>
+                    {pendingVerificationsCount}
+                  </span>
+                )}
+              </button>
+            );
+          })}
           <button className="tab" style={{ marginLeft: "auto", fontSize: 12, fontWeight: 500 }} onClick={fetchDealsFromServer}><RefreshCw size={14} /> Refresh</button>
         </nav>
       )}
