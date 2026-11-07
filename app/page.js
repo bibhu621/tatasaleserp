@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
-import { Truck, ClipboardCheck, Wallet, BarChart3, Plus, ChevronRight, ChevronDown, CheckCircle2, XCircle, Clock, PackageCheck, ArrowLeft, LogOut, AlertTriangle, FileText, Filter, RefreshCw, Search, ShieldCheck, Lock, Users, Printer, RotateCcw, Sparkles } from "lucide-react";
+import { Truck, ClipboardCheck, Wallet, BarChart3, Plus, ChevronRight, ChevronDown, CheckCircle2, XCircle, Clock, PackageCheck, ArrowLeft, LogOut, AlertTriangle, FileText, Filter, RefreshCw, Search, ShieldCheck, Lock, Users, Printer, RotateCcw, Sparkles, Save } from "lucide-react";
 import LoginPage from "@/components/LoginPage";
 import UserManagement from "@/components/UserManagement";
 import ReportsDashboard from "@/components/ReportsDashboard";
@@ -466,7 +466,9 @@ function DealEditor({ deal: d, deals, session, onUpdate, onBack, onDelete }) {
     ? (preApproval || editMode)
     : isSales && !hasPendingAmendment && (preApproval || (postApproval && editMode));
 
-  const gated = !isSuperAdmin; // Only Super Admin bypasses amendment staging completely!
+  // Amendment staging is only for approved/delivered deals (postApproval).
+  // In Draft/Rejected (preApproval), sales edits are direct. Super Admin bypasses staging anytime.
+  const gated = postApproval && !isSuperAdmin;
 
   const snapshot = () => ({
     customer: { ...emptyCustomer(), ...(d.customer || {}) },
@@ -529,9 +531,46 @@ function DealEditor({ deal: d, deals, session, onUpdate, onBack, onDelete }) {
   };
 
   // Every change saves immediately through onUpdate; nothing lives only in this component.
-  const withLog = (patchFn, note) => onUpdate(prev => ({ ...patchFn(prev), activity: [...(prev.activity || []), logEntry(session.name, role, note)] }));
+  const withLog = (patchFn, note, immediate = false) => onUpdate(prev => ({ ...patchFn(prev), activity: [...(prev.activity || []), logEntry(session.name, role, note)] }), immediate);
   const set = (section, field, value) => onUpdate(prev => ({ ...prev, [section]: { ...(prev[section] || {}), [field]: value } }));
   const commitFieldChange = (section, field, o, n) => { if (JSON.stringify(o) !== JSON.stringify(n)) withLog(p => p, `Changed ${section}.${field}: ${describe(o)} → ${describe(n)}`); };
+
+  const handleBack = () => {
+    if (preApproval && canTouch) {
+      const nextPricing = { ...(d.pricing || {}), ...(coreDraft.pricing || {}) };
+      const otherTot = sum(nextPricing.otherDiscounts || [], o => o.amount);
+      const net = num(nextPricing.exshowroom) - num(nextPricing.tmlDiscount) - num(nextPricing.dealerDiscount) - num(nextPricing.vasNfaDiscount) - otherTot;
+      nextPricing.tcs = net > 1000000 ? Math.round(net * 0.01) : 0;
+      onUpdate(prev => ({
+        ...prev,
+        branch: normalizeBranch(d.branch) || prev.branch || "Sasaram",
+        customer: { ...(prev.customer || {}), ...(coreDraft.customer || {}) },
+        vehicle: { ...(prev.vehicle || {}), ...(coreDraft.vehicle || {}) },
+        pricing: nextPricing,
+      }), true);
+    }
+    onBack();
+  };
+
+  const handleSaveDraft = () => {
+    const nextPricing = { ...(d.pricing || {}), ...(coreDraft.pricing || {}) };
+    const otherTot = sum(nextPricing.otherDiscounts || [], o => o.amount);
+    const net = num(nextPricing.exshowroom) - num(nextPricing.tmlDiscount) - num(nextPricing.dealerDiscount) - num(nextPricing.vasNfaDiscount) - otherTot;
+    nextPricing.tcs = net > 1000000 ? Math.round(net * 0.01) : 0;
+
+    withLog(
+      p => ({
+        ...p,
+        branch: normalizeBranch(d.branch) || p.branch || "Sasaram",
+        customer: { ...(p.customer || {}), ...(coreDraft.customer || {}) },
+        vehicle: { ...(p.vehicle || {}), ...(coreDraft.vehicle || {}) },
+        pricing: nextPricing,
+      }),
+      "Saved draft details",
+      true
+    );
+    alert("✓ Deal draft saved successfully!");
+  };
 
   const editCore = (section, field, value) => {
     if (section === "pricing") {
@@ -638,13 +677,30 @@ function DealEditor({ deal: d, deals, session, onUpdate, onBack, onDelete }) {
       alert("⚠️ Branch selection is mandatory! Please select one of the 4 branches (Sasaram, Bihiya, Buxas, or Mohaniya) before submitting for approval.");
       return;
     }
-    withLog(p => ({ ...p, branch: validBranch, status: STATUS.PENDING, approval: { status: STATUS.PENDING, by: "", at: "", remarks: "" } }), "Submitted pricing for admin approval");
+    const nextPricing = { ...(d.pricing || {}), ...(coreDraft.pricing || {}) };
+    const otherTot = sum(nextPricing.otherDiscounts || [], o => o.amount);
+    const net = num(nextPricing.exshowroom) - num(nextPricing.tmlDiscount) - num(nextPricing.dealerDiscount) - num(nextPricing.vasNfaDiscount) - otherTot;
+    nextPricing.tcs = net > 1000000 ? Math.round(net * 0.01) : 0;
+
+    withLog(
+      p => ({
+        ...p,
+        branch: validBranch,
+        customer: { ...(p.customer || {}), ...(coreDraft.customer || {}) },
+        vehicle: { ...(p.vehicle || {}), ...(coreDraft.vehicle || {}) },
+        pricing: nextPricing,
+        status: STATUS.PENDING,
+        approval: { status: STATUS.PENDING, by: "", at: "", remarks: "" },
+      }),
+      "Submitted pricing for admin approval",
+      true
+    );
   };
-  const approve = () => withLog(p => ({ ...p, status: STATUS.APPROVED, approval: { status: "approved", by: session.name, at: stamp(), remarks: "" } }), "Pricing approved");
+  const approve = () => withLog(p => ({ ...p, status: STATUS.APPROVED, approval: { status: "approved", by: session.name, at: stamp(), remarks: "" } }), "Pricing approved", true);
   const reject = () => setModal({
     title: "Reject pricing",
     fields: [{ name: "remarks", label: "Reason (shown to Sales)", autoFocus: true }],
-    onSubmit: v => withLog(p => ({ ...p, status: STATUS.REJECTED, approval: { status: "rejected", by: session.name, at: stamp(), remarks: v.remarks || "" } }), "Pricing rejected" + (v.remarks ? `: ${v.remarks}` : "")),
+    onSubmit: v => withLog(p => ({ ...p, status: STATUS.REJECTED, approval: { status: "rejected", by: session.name, at: stamp(), remarks: v.remarks || "" } }), "Pricing rejected" + (v.remarks ? `: ${v.remarks}` : ""), true),
   });
 
   const markDelivered = () => withLog(p => ({ ...p, status: STATUS.DELIVERED }), "Marked as delivered");
@@ -798,7 +854,7 @@ function DealEditor({ deal: d, deals, session, onUpdate, onBack, onDelete }) {
   };
 
   const priceSub = d.status === STATUS.PENDING ? "Locked — awaiting Admin decision" : isClosed ? (isSuperAdmin ? "Closed — Super Admin can reopen & edit anytime" : "Locked — deal is closed") : postApproval ? (editMode ? "Editing active" : isSuperAdmin ? "Super Admin can edit anytime" : "Locked — click Edit to request amendment") : "Sales enters";
-  const canLogPayment = (isSales || isAccounts || isAdminOrSuper) && (postApproval || isSuperAdmin);
+  const canLogPayment = isSales || isAccounts || isAdminOrSuper;
   const pendingAmendments = (d.amendments || []).filter(a => a.status === "pending");
   const balanceDue = c.balance > 0;
 
@@ -807,7 +863,7 @@ function DealEditor({ deal: d, deals, session, onUpdate, onBack, onDelete }) {
       <DealPrintSheet deal={d} totals={calc(d)} showOffice={isAdminOrSuper || isAccounts} session={session} />
       <div className="stack no-print" style={{ paddingBottom: 90 }}>
         <div className="flex between wrapf">
-          <button className="lnk mu flex" onClick={onBack}><ArrowLeft size={15} /> All deals</button>
+          <button className="lnk mu flex" onClick={handleBack}><ArrowLeft size={15} /> All deals</button>
           <div className="flex">
             <button className="btn pri xs" onClick={() => {
               const prev = document.title;
@@ -1236,7 +1292,16 @@ function DealEditor({ deal: d, deals, session, onUpdate, onBack, onDelete }) {
           <div className="flex">
             {preApproval && (
               <>
-                {isSales && <button className="btn acc" onClick={submitForApproval}>Submit for approval</button>}
+                {isSales && (
+                  <>
+                    <button type="button" className="btn xs" onClick={handleSaveDraft} style={{ gap: 5 }}>
+                      <Save size={14} /> Save Draft
+                    </button>
+                    <button type="button" className="btn acc" onClick={submitForApproval}>
+                      Submit for approval
+                    </button>
+                  </>
+                )}
                 {isAdminOrSuper && (
                   <button
                     className="btn acc"
@@ -1865,12 +1930,42 @@ export default function App() {
     fetchDealsFromServer(session);
   }, [session]);
 
-  const persist = async next => {
+  const dealsRef = useRef(deals);
+  useEffect(() => { dealsRef.current = deals; }, [deals]);
+
+  const saveTimeoutRef = useRef(null);
+  const persist = (next, immediate = false) => {
     setDeals(next);
     cacheDeals(next, session);
-    try {
-      await fetch("/api/deals", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ deals: next }) });
-    } catch (err) { console.error("Failed to sync deals to server:", err); }
+    dealsRef.current = next;
+
+    const doSync = async () => {
+      try {
+        const payloadDeals = dealsRef.current || next;
+        const res = await fetch("/api/deals", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ deals: payloadDeals }),
+        });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          console.error("Failed to sync deals to server:", res.status, errData);
+        }
+      } catch (err) {
+        console.error("Failed to sync deals to server:", err);
+      }
+    };
+
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+
+    if (immediate) {
+      doSync();
+    } else {
+      saveTimeoutRef.current = setTimeout(doSync, 500);
+    }
   };
 
   const handleLogout = async () => {
@@ -1881,13 +1976,23 @@ export default function App() {
 
   const handleCreateDealWithDetails = (branch, customerDetails) => {
     const d = newDeal(branch, session, customerDetails);
-    persist([...deals, d]);
+    const currentDeals = dealsRef.current || deals;
+    const next = [...currentDeals, d];
+    persist(next, true);
     setOpenId(d.id);
     setNewDealModalOpen(false);
   };
-  const handleUpdateDeal = (id, fn) => { if (deals.some(x => x.id === id)) persist(deals.map(x => (x.id === id ? fn(x) : x))); };
+  const handleUpdateDeal = (id, fn, immediate = false) => {
+    const currentDeals = dealsRef.current || deals;
+    if (currentDeals.some(x => x.id === id)) {
+      const next = currentDeals.map(x => (x.id === id ? fn(x) : x));
+      persist(next, immediate);
+    }
+  };
   const handleDeleteDeal = async id => {
-    persist(deals.filter(x => x.id !== id));
+    const currentDeals = dealsRef.current || deals;
+    const next = currentDeals.filter(x => x.id !== id);
+    persist(next, true);
     setOpenId(null);
     try {
       await fetch(`/api/deals?id=${encodeURIComponent(id)}`, { method: "DELETE" });
@@ -1962,7 +2067,7 @@ export default function App() {
         </div>
       );
     } else {
-      body = <DealEditor deal={openDeal} deals={deals} session={session} onUpdate={fn => handleUpdateDeal(openDeal.id, fn)} onBack={() => setOpenId(null)} onDelete={() => handleDeleteDeal(openDeal.id)} />;
+      body = <DealEditor deal={openDeal} deals={deals} session={session} onUpdate={(fn, immediate) => handleUpdateDeal(openDeal.id, fn, immediate)} onBack={() => setOpenId(null)} onDelete={() => handleDeleteDeal(openDeal.id)} />;
     }
   }
   else if (tab === "users" && isAdminOrSuper) body = <UserManagement currentAdmin={session} />;
